@@ -123,7 +123,6 @@ rawkernels = {
             '4.19-stable-master-hikey960-lkft',
             '4.19-stable-master-hikey-lkft',
             '4.19-stable-android11-hikey960-lkft',
-            '4.19-stable-aosp-x15',
             ],
     'android-beagle-x15-4.19-stable-lkft': [
             '4.19-stable-aosp-x15',
