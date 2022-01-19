@@ -93,3 +93,32 @@
    sudo -u postgres psql -d testreport -c "select * from lkft_reportjob;"
    sudo -u postgres psql -d testreport -c "select count(*) from lkft_testcase;"
    sudo -u postgres psql -d testreport -c "SELECT * FROM lkft_testcase WHERE ( job_id = '2476852' AND lava_nick = 'production' AND suite LIKE '%_scimark' AND name = 'scimark-Monte-Carlo');"
+
+5. instructions on moving the database files to another place
+    $ sudo systemctl stop postgresql@13-main
+    $ sudo rsync -av /var/lib/postgresql/13/ postgres_13/
+    ## when run with the postgres user
+    $ rsync -av /var/lib/postgresql/13/ postgres_13/
+
+    $ vi /etc/postgresql/13/main/postgresql.conf
+    # Original value
+    #data_directory = '/var/lib/postgresql/13/main'         # use data in another directory
+    data_directory = '/home/yongqin.liu/500GB/postgres_dump/postgres_13/main'               # use data in another directory
+    $ sudo systemctl start postgresql@13-main
+
+6. Misc Tips
+    # check the size of one database
+    SELECT pg_size_pretty(pg_database_size('databasename') );
+
+    # this will list the top 30 resources on your db that eats the most disk space
+    SELECT nspname, relname, pg_size_pretty(pg_relation_size(c.oid)) AS "size" FROM pg_class c LEFT JOIN pg_namespace n ON (n.oid=c.relnamespace) WHERE nspname NOT IN ('pg_catalog','information_schema') ORDER BY pg_relation_size(c.oid) DESC LIMIT 30;
+
+    # and this will list how many dead rows per table
+    SELECT relname, n_dead_tup FROM pg_stat_user_tables WHERE n_dead_tup > 0 ORDER BY n_dead_tup DESC;
+
+    # when a table has too many dead rows, cleaning them might free up some space too, but not a lot
+    SELECT * FROM lkft_testcase limit 1;
+    vacuum (verbose, analyze) lkft_testcase;
+    drop user lkftreport;
+
+    pg_restore -p 5433 -d lkftproject -C /home/yongqin.liu/500GB/postgres_dump/lkftproject-dump-13JAN2022.dump
