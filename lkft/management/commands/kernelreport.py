@@ -31,6 +31,7 @@ from lkft.views import extract
 from lkft.views import get_result_file_path
 from lkft.views import download_attachments_save_result
 from lkft.views import get_build_metadata
+from lkft.views import get_build_kernel_version, parse_kernel_version_string
 from lkft.lkft_config import get_version_from_pname, get_kver_with_pname_env
 
 logger = logging.getLogger(__name__)
@@ -826,43 +827,6 @@ def classifyTest(flakeDicts, testcasename, hardware, kernel, android):
     return 'I'
 
 
-def versiontoMME(versionString):
-    ## 5.13.0, 5.13.0-50292ffdbbdb, 5.14.0-rc2, or 5.14.0-rc2-754a0abed174
-    versionDict = { 'Major':0,
-                    'Minor':0,
-                    'Extra':0,
-                    'versionString': versionString}
-
-    if versionString.startswith('v'):
-        versionString = versionString[1:]
-    # print versionString
-    tokens = re.split( r'[.-]', versionString)
-    # print tokens
-    if tokens[0].isnumeric() and tokens[1].isnumeric() and tokens[2].isnumeric():
-        versionDict['Major'] = tokens[0]
-        versionDict['Minor'] = tokens[1]
-        versionDict['Extra'] = tokens[2]
-
-    tokens_hyphen = versionString.split('-')
-    if len(tokens_hyphen) >= 2:
-        if tokens_hyphen[1].startswith('rc'):
-            # for case of 5.14.0-rc2, or 5.14.0-rc2-754a0abed174
-            versionDict['rc'] = tokens_hyphen[1]
-            if len(tokens_hyphen) == 3:
-                versionDict['sha'] = tokens_hyphen[2]
-            else:
-                # for case of 5.14.0-rc2, no sha specified
-                pass
-        else:
-            # for case of 5.13.0-50292ffdbbdb, not rc version
-            versionDict['sha'] = tokens_hyphen[1]
-    else:
-        # for case of 5.13.0, not rc version, and no sha specified
-        pass
-
-    return versionDict
-
-
 def find_best_two_runs(builds, project_name, project, exact_ver1="", exact_ver2="", reverse_build_order=False, no_check_kernel_version=False):
     goodruns = []
     bailaftertwo = 0
@@ -871,20 +835,21 @@ def find_best_two_runs(builds, project_name, project, exact_ver1="", exact_ver2=
     nextVersionDict=None
 
     if len(exact_ver1) > 0 and exact_ver1 !='No':
-        baseExactVersionDict = versiontoMME(exact_ver1)
+        baseExactVersionDict = parse_kernel_version_string(exact_ver1)
 
-    for build in builds:
+    sorted_builds = sorted(builds, key=get_build_kernel_version, reverse=True)
+    for build in sorted_builds:
         if bailaftertwo == 2:
             break
         elif bailaftertwo == 0 :
-            baseVersionDict = versiontoMME(build['version'])
+            baseVersionDict = parse_kernel_version_string(build['version'])
             if baseExactVersionDict is not None \
                     and not baseVersionDict['versionString'].startswith(exact_ver1):
                 logger.info('Skip the check as it is not the specified version for %s %s', project_name, build['version'])
                 continue
             # print "baseset"
         elif bailaftertwo == 1 :
-            nextVersionDict = versiontoMME(build['version'])
+            nextVersionDict = parse_kernel_version_string(build['version'])
             if exact_ver2 is not None \
                     and not nextVersionDict['versionString'].startswith(exact_ver2):
                 # for case that second build version specified, but not this build

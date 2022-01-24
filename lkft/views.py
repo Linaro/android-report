@@ -1324,7 +1324,8 @@ def get_measurements_of_project(project_id=None, project_name=None, project_grou
 
     allbenchmarkjobs_result_dict = {}
     # for db_report_build in db_report_builds:
-    for build in local_builds[:BUILD_WITH_BENCHMARK_JOBS_NUMBER]:
+    sorted_builds = sorted(local_builds[:BUILD_WITH_BENCHMARK_JOBS_NUMBER], key=get_build_kernel_version, reverse=True)
+    for build in sorted_builds:
         jobs = get_jobs_for_build_from_db_or_qareport(build_id=build.get("id"), force_fetch_from_qareport=fetch_latest_from_qa_report)
         jobs_to_be_checked = get_classified_jobs(jobs=jobs).get('final_jobs')
         download_attachments_save_result(jobs_to_be_checked)
@@ -1450,6 +1451,52 @@ def get_measurements_of_project(project_id=None, project_name=None, project_grou
     return allbenchmarkjobs_result_dict
 
 
+def parse_kernel_version_string(versionString):
+    ## 5.13.0, 5.13.0-50292ffdbbdb, 5.14.0-rc2, or 5.14.0-rc2-754a0abed174
+    versionDict = { 'Major':0,
+                    'Minor':0,
+                    'Extra':0,
+                    'versionString': versionString}
+
+    if versionString.startswith('v'):
+        versionString = versionString[1:]
+    # print versionString
+    tokens = re.split( r'[.-]', versionString)
+    # print tokens
+    if tokens[0].isnumeric() and tokens[1].isnumeric() and tokens[2].isnumeric():
+        versionDict['Major'] = tokens[0]
+        versionDict['Minor'] = tokens[1]
+        versionDict['Extra'] = tokens[2]
+
+    tokens_hyphen = versionString.split('-')
+    if len(tokens_hyphen) >= 2:
+        if tokens_hyphen[1].startswith('rc'):
+            # for case of 5.14.0-rc2, or 5.14.0-rc2-754a0abed174
+            versionDict['rc'] = tokens_hyphen[1]
+            if len(tokens_hyphen) == 3:
+                versionDict['sha'] = tokens_hyphen[2]
+            else:
+                # for case of 5.14.0-rc2, no sha specified
+                pass
+        else:
+            # for case of 5.13.0-50292ffdbbdb, not rc version
+            versionDict['sha'] = tokens_hyphen[1]
+    else:
+        # for case of 5.13.0, not rc version, and no sha specified
+        pass
+
+    return versionDict
+
+
+def get_build_kernel_version(build):
+    versionDict = parse_kernel_version_string(build.get('version'))
+    major = int(versionDict.get('Major', 0))
+    minor = int(versionDict.get('Minor', 0))
+    extra = int(versionDict.get('Extra', 0))
+    rc = int(versionDict.get('rc', '0').replace('rc', ''))
+    return (major, minor, extra, rc)
+
+
 def list_builds(request):
     project_id = request.GET.get('project_id', None)
     fetch_latest_from_qa_report = request.GET.get('fetch_latest', "false").lower() == 'true'
@@ -1468,7 +1515,8 @@ def list_builds(request):
     logger.info("Start for list_builds before loop of get_build_info: %s" % project_id)
     builds_result = []
     if project_full_name.find("android-lkft-benchmarks") < 0:
-        for build in builds[:BUILD_WITH_JOBS_NUMBER]:
+        sorted_builds = sorted(builds[:BUILD_WITH_JOBS_NUMBER], key=get_build_kernel_version, reverse=True)
+        for build in sorted_builds:
             builds_result.append(get_build_info(db_reportproject, build, fetch_latest_from_qa_report=fetch_latest_from_qa_report))
 
         #func = functools.partial(get_build_info, db_reportproject)
