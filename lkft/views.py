@@ -1489,11 +1489,13 @@ def parse_kernel_version_string(versionString):
 
 
 def get_build_kernel_version(build):
+    ## 5.16.0-rc8-3b4efafcb8a9 should be older than 5.16.0-6e9d208fdc7b
     versionDict = parse_kernel_version_string(build.get('version'))
     major = int(versionDict.get('Major', 0))
     minor = int(versionDict.get('Minor', 0))
     extra = int(versionDict.get('Extra', 0))
-    rc = int(versionDict.get('rc', '0').replace('rc', ''))
+    # set rc to the max number, so that we could make sure that rc version listed before the release versions
+    rc = int(versionDict.get('rc', '65536').replace('rc', ''))
     return (major, minor, extra, rc)
 
 
