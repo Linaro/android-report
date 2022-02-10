@@ -3097,6 +3097,8 @@ def gitlab_project_pipelines(request, project_id):
             logger.debug("start for pipeline %s" % pipeline.get('web_url'))
             updated_at_datetime = qa_report_api.get_aware_datetime_from_str(pipeline.get('updated_at'))
             pipeline['updated_at_datetime'] = updated_at_datetime
+            created_at_datetime = qa_report_api.get_aware_datetime_from_str(pipeline.get('created_at'))
+            pipeline['created_at_datetime'] = created_at_datetime
 
             variables_dict = {}
             try:

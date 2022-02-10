@@ -26,19 +26,31 @@
 			<th>Index</th>
 			<th>Pipeline Id</th>
 			<th>Status</th>
+			<th>Created At</th>
 			<th>Updated At</th>
-			<th>Branch Name#Kernel Describe<br/>(Need login gitlab to download artifacts)</th>
+			<th>Kernel Branch</th>
+			<th>Kernel Describe<br/>(Need login gitlab to download artifacts)</th>
 	</tr>
 	{% for pipeline in pipelines %}
 	<tr>
 	    <td>{{ forloop.counter }}</td>
 	    <td><a href="{{pipeline.web_url}}/">{{pipeline.id}}</a></td>
-	    <td>{{pipeline.status}}</td>
-	    <td>{{ pipeline.updated_at_datetime|date:'M. d, Y, H:i'}}, {{ pipeline.updated_at_datetime|timesince}} ago</td>
-	    {% if pipeline.artifacts_url %}
-	    <td><a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.branch}}#{{pipeline.kernel_describe}}</a></td>
+
+	    {% if pipeline.status == "manual" %}
+	    <td><p style="background-color: green">{{pipeline.status}}</p></td>
+	    {% elif pipeline.status == "failed" %}
+	    <td><p style="background-color: red">{{pipeline.status}}</p></td>
 	    {% else %}
-	    <td>{{pipeline.branch}}#{{pipeline.kernel_describe}}</td>
+	    <td>{{pipeline.status}}</td>
+	    {% endif %}
+
+	    <td>{{ pipeline.created_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.created_at_datetime|timesince}} ago</td>
+	    <td>{{ pipeline.updated_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.updated_at_datetime|timesince}} ago</td>
+	    <td>{{pipeline.branch}}</td>
+	    {% if pipeline.artifacts_url %}
+	    <td><a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.kernel_describe}}</a></td>
+	    {% else %}
+	    <td>{{pipeline.kernel_describe}}</td>
 	    {% endif %}
 	</tr>
 	{% endfor %}

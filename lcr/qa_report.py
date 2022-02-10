@@ -94,7 +94,6 @@ class RESTFullApi():
 
 class GitlabApi(RESTFullApi):
     def get_api_url_prefix(self, detail_url):
-        url_host="https://gitlab.com/api/v4/projects/"
         return 'https://%s/api/v4/projects/%s' % (self.domain, detail_url)
 
     def get_json_with_url(self, full_url):
