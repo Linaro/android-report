@@ -3090,8 +3090,13 @@ def gitlab_projects(request):
 def gitlab_project_pipelines(request, project_id):
     logger.debug("start prepare for gitlab_project_pipelines")
     try:
+        per_page = int(request.GET.get('per_page', '50'))
+    except:
+        per_page = 50
+
+    try:
         project = gitlab_api.get_project(project_id)
-        pipelines = gitlab_api.get_project_pipelines(project_id, per_page=30)
+        pipelines = gitlab_api.get_project_pipelines(project_id, per_page=per_page)
 
         for pipeline in pipelines:
             logger.debug("start for pipeline %s" % pipeline.get('web_url'))
