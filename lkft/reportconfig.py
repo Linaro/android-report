@@ -66,7 +66,6 @@ rawkernels = {
     'android-hikey-linaro-4.14-stable-lkft': [
             '4.14-stable-master-hikey960-lkft',
             '4.14-stable-master-hikey-lkft',
-            '4.14-stable-android12-hikey960-lkft',
             '4.14-stable-android11-hikey960-lkft',
             ],
     'android-beagle-x15-4.14-stable-lkft': [
