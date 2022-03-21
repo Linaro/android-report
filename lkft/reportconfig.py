@@ -14,44 +14,7 @@ rawkernels = {
     'EAP-android12-510-db845c-presubmit': [
             '5.10-gki-private-android12-db845c-presubmit',
             ],
-    '4.4':[
-            '4.4p-10.0-gsi-hikey',
-            '4.4p-9.0-hikey',
-            ],
-    '4.9':[
-            '4.9q-10.0-gsi-hikey960',
-            '4.9q-10.0-gsi-hikey',
-            '4.9q-android11-hikey960',
-            '4.9p-10.0-gsi-hikey960',
-            '4.9p-10.0-gsi-hikey',
-            '4.9p-9.0-hikey960',
-            '4.9p-9.0-hikey',
-            ],
-    '4.14':[
-            '4.14-stable-master-hikey960-lkft',
-            '4.14-stable-master-hikey-lkft',
-            '4.14-stable-aosp-x15',
-            '4.14-stable-android12-hikey960-lkft',
-            '4.14-stable-android11-hikey960-lkft',
-            '4.14q-10.0-gsi-hikey960',
-            '4.14q-10.0-gsi-hikey',
-            '4.14q-android11-hikey960',
-            '4.14q-master-hikey960',
-            '4.14p-10.0-gsi-hikey960',
-            '4.14p-10.0-gsi-hikey',
-            '4.14p-9.0-hikey960',
-            '4.14p-9.0-hikey',
-            ],
-    '4.19':[
-            '4.19-stable-master-hikey960-lkft',
-            '4.19-stable-master-hikey-lkft',
-            '4.19-stable-android11-hikey960-lkft',
-            '4.19q-10.0-gsi-hikey960',
-            '4.19q-10.0-gsi-hikey',
-            '4.19q-android11-hikey960',
-            '4.19q-master-hikey960',
-            '4.19-stable-aosp-x15',
-            ],
+
     'android-4.9-q-hikey':[
             '4.9q-10.0-gsi-hikey960',
             '4.9q-10.0-gsi-hikey',
@@ -167,45 +130,6 @@ rawkernels = {
 }
 
 projectids = {
-    '4.4p-9.0-hikey':
-                    {'project_id': 123, 
-                     'hardware': 'HiKey',
-                     'OS' : 'LCR-Android9',
-                     'baseOS' : 'Android9',
-                     'kern' : '4.4',
-                     'branch' : 'Android-4.4-p',},
-    '4.4p-10.0-gsi-hikey':
-                    {'project_id': 225, 
-                     'hardware': 'HiKey',
-                     'OS' : 'Android10',
-                     'kern' : '4.4',
-                     'branch' : 'Android-4.4-p',},
-    '4.9p-9.0-hikey':
-                    {'project_id': 122, 
-                     'hardware': 'HiKey',
-                     'OS' : 'LCR-Android9',
-                     'baseOS' : 'Android9',
-                     'kern' : '4.9',
-                     'branch' : 'Android-4.9-p',},
-    '4.9p-9.0-hikey960':
-                    {'project_id': 179,
-                     'hardware': 'HiKey960',
-                     'OS' : 'LCR-Android9',
-                     'baseOS' : 'Android9',
-                     'kern' : '4.9',
-                     'branch' : 'Android-4.9-p',},
-    '4.9p-10.0-gsi-hikey':
-                    {'project_id': 223,
-                     'hardware': 'HiKey',
-                     'OS' : 'Android10',
-                     'kern' : '4.9',
-                     'branch' : 'Android-4.9-p',},
-    '4.9p-10.0-gsi-hikey960':
-                    {'project_id': 222, 
-                     'hardware': 'HiKey960',
-                     'OS' : 'Android10',
-                     'kern' : '4.9',
-                     'branch' : 'Android-4.9-p',},
     '4.9q-10.0-gsi-hikey':
                     {'project_id': 212,
                      'hardware': 'HiKey',
@@ -233,32 +157,6 @@ projectids = {
                      'kern' : '4.9',
                      'branch': 'Android-4.9-q',},
 
-    '4.14p-9.0-hikey':
-                    {'project_id': 121, 
-                     'hardware': 'HiKey',
-                     'OS' : 'LCR-Android9',
-                     'baseOS' : 'Android9',
-                     'kern' : '4.14',
-                     'branch' : 'Android-4.14-p',},
-    '4.14p-9.0-hikey960':
-                    {'project_id': 177, 
-                     'hardware': 'HiKey960',
-                     'OS' : 'LCR-Android9',
-                     'baseOS' : 'Android9',
-                     'kern' : '4.14',
-                     'branch' : 'Android-4.14-p',},
-    '4.14p-10.0-gsi-hikey':
-                    {'project_id': 220, 
-                     'hardware': 'HiKey',
-                     'OS' : 'Android10',
-                     'kern' : '4.14',
-                     'branch' : 'Android-4.14-p',},
-    '4.14p-10.0-gsi-hikey960':
-                    {'project_id': 221, 
-                     'hardware': 'HiKey960',
-                     'OS' : 'Android10',
-                     'kern' : '4.14',
-                     'branch' : 'Android-4.14-p',},
     '4.14q-10.0-gsi-hikey':
                     {'project_id': 211,
                      'hardware': 'HiKey',
