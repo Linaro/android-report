@@ -474,16 +474,26 @@ def report_results(output, run, regressions, combo, priorrun, flakes, antiregres
         output.write(str(numbers.number_assumption_failure) + " Assumption Failures, ")
     output.write(str(numbers.number_total) + " Total\n" )
     output.write("    " + "Modules Run: " + str(numbers.modules_done) + " Module Total: " + str(numbers.modules_total) + "\n")
-    for regression in regressions:
-        # pdb.set_trace()
+
+    regressions_failure = [ failure for failure in regressions if failure.get('result') == 'fail' ]
+    regressions_assumption = [ failure for failure in regressions if failure.get('result') == 'ASSUMPTION_FAILURE' ]
+
+    def print_regressions(output, regressions, flakes, project_info):
         if 'baseOS' in project_info: 
             OS = project_info['baseOS']
         else:
             OS = project_info['OS']
-        testtype=classifyTest(flakes, regression['test_name'], project_info['hardware'], project_info['kern'], OS)
-        # def classifyTest(flakeDicts, testcasename, hardware, kernel, android):
-        #output.write("        " + testtype + " " + regression['test_name'] + "\n")
-        output.write("        " + testtype + " " + regression['module_name'] +"." + regression['test_name'] + "\n")
+        for regression in regressions_failure:
+            # pdb.set_trace()
+            testtype = classifyTest(flakes, regression['test_name'], project_info['hardware'], project_info['kern'], OS)
+            output.write("        " + testtype + " " + regression['module_name'] +"." + regression['test_name'] + "\n")
+
+    if len(regressions_failure) > 0:
+        output.write("    " + str(len(regressions_failure)) + " Test Regressions:\n")
+        print_regressions(output, regressions_failure, flakes, project_info)
+    if len(regressions_assumption) > 0:
+        output.write("    " + str(len(regressions_assumption)) + " New Assumption Failures:\n")
+        print_regressions(output, regressions_assumption, flakes, project_info)
 
     if len(regressions) > 0:
         output.write("    " + "Current jobs\n")
