@@ -117,15 +117,12 @@ rawkernels = {
 
     'android13-5.10-full-cts-vts':[
             '5.10-gki-android13-aosp-master-db845c-full-cts-vts',
-            '5.10-gki-android13-aosp-master-hikey960-full-cts-vts',
             ],
     'EAP-android12-5.10-full-cts-vts':[
             '5.10-gki-private-android12-db845c-full-cts-vts',
-            '5.10-gki-private-android12-hikey960-full-cts-vts',
             ],
     'android11-5.4-full-cts-vts':[
             '5.4-gki-android11-android11-db845c-full-cts-vts',
-            '5.4-gki-android11-android11-hikey960-full-cts-vts',
             ],
 }
 
