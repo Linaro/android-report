@@ -60,6 +60,7 @@ class RESTFullApi():
             return r
 
         if not r.ok and r.status_code == 404:
+            logger.info("url({}) not found".format(request_url))
             raise UrlNotFoundException(r, url=request_url)
         elif not r.ok or r.status_code != 200:
             raise Exception(r.url, r.reason, r.status_code)
@@ -362,8 +363,14 @@ class QAReportApi(RESTFullApi):
         return "%s/%s" % (group_name, slug)
 
 
-    def get_all_builds(self, project_id, only_first=False):
+    def get_all_builds(self, project_id, only_first=False, limit=-1):
         builds_api_url = "api/projects/%s/builds" % project_id
+        if only_first:
+            limit = 1
+        if limit != -1:
+            builds_api_url = "{}?limit={}".format(builds_api_url, limit)
+            only_first = True
+
         return self.get_list_results(api_url=builds_api_url, only_first=only_first)
 
 
