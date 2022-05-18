@@ -16,22 +16,38 @@ rawkernels = {
             ],
 
     'android-4.9-q-hikey':[
+            '4.9q-10.0-gsi-hikey960',
             '4.9q-10.0-gsi-hikey',
+            '4.9q-android11-hikey960',
+            '4.9q-android12gsi-hikey960',
             ],
     'android-4.14-q-hikey': [
+            '4.14q-10.0-gsi-hikey960',
             '4.14q-10.0-gsi-hikey',
+            '4.14q-android11-hikey960',
+            '4.14q-android12gsi-hikey960',
+            '4.14q-master-hikey960'
             ],
     'android-hikey-linaro-4.14-stable-lkft': [
+            '4.14-stable-master-hikey960-lkft',
             '4.14-stable-master-hikey-lkft',
+            '4.14-stable-android11-hikey960-lkft',
+            '4.14-stable-android12-hikey960-lkft-public',
             ],
     'android-beagle-x15-4.14-stable-lkft': [
             '4.14-stable-aosp-x15',
             ],
     'android-4.19-q-hikey':[
+            '4.19q-10.0-gsi-hikey960',
             '4.19q-10.0-gsi-hikey',
+            '4.19q-android11-hikey960',
+            '4.19q-android12gsi-hikey960',
+            '4.19q-master-hikey960',
             ],
     'android-hikey-linaro-4.19-stable-lkft': [
+            '4.19-stable-master-hikey960-lkft',
             '4.19-stable-master-hikey-lkft',
+            '4.19-stable-android11-hikey960-lkft',
             ],
     'android-beagle-x15-4.19-stable-lkft': [
             '4.19-stable-aosp-x15',
@@ -39,24 +55,33 @@ rawkernels = {
 
     'android12-5.4':[
             '5.4-gki-aosp-master-db845c',  # android12-5.4
+            '5.4-gki-aosp-master-hikey960', # android12-5.4
             '5.4-aosp-master-x15', # android12-5.4
             '5.4-gki-android12-android11-db845c', # android12-5.4
             '5.4-gki-android12-android12-db845c', # android12-5.4
+            '5.4-gki-android12-android12-hikey960', # android12-5.4
             ],
     'android11-5.4-lts':[
             '5.4-lts-gki-android11-android11-db845c', # android11-5.4-lts
+            '5.4-lts-gki-android11-android11-hikey960', # android11-5.4-lts
             ],
     'android11-5.4':[
             '5.4-gki-android11-android11-db845c', # android11-5.4
+            '5.4-gki-android11-android11-hikey960', # android11-5.4
             '5.4-gki-android11-android12-db845c', # android11-5.4
+            '5.4-gki-android11-android12-hikey960', # android11-5.4
             '5.4-gki-android11-aosp-master-db845c', # android11-5.4
+            '5.4-gki-android11-aosp-master-hikey960', # android11-5.4
             ],
     'android13-5.10':[
             '5.10-gki-android13-aosp-master-db845c',
+            '5.10-gki-android13-aosp-master-hikey960',
             ],
     'android12-5.10':[
             '5.10-gki-aosp-master-db845c',
+            '5.10-gki-aosp-master-hikey960',
             '5.10-gki-android12-android12-db845c',
+            '5.10-gki-android12-android12-hikey960',
             ],
     'android13-5.15':[
             '5.15-gki-android13-aosp-master-db845c',
@@ -64,12 +89,15 @@ rawkernels = {
 
     'android12-5.10-lts':[
             '5.10-lts-gki-android12-android12-db845c',
+            '5.10-lts-gki-android12-android12-hikey960',
             ],
     'android12-5.4-lts':[
             '5.4-lts-gki-android12-android12-db845c', # android12-5.4-lts
+            '5.4-lts-gki-android12-android12-hikey960', # android12-5.4-lts
             ],
     'android-mainline':[
             'mainline-gki-aosp-master-db845c',
+            'mainline-gki-aosp-master-hikey960',
             'mainline-gki-aosp-master-hikey',
             'mainline-gki-aosp-master-x15',
             ],
