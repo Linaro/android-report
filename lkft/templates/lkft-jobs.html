@@ -98,7 +98,7 @@
     <th> Index</th>
     <th> Job Id/Job Link</a> </th>
     <th> Job Name/Attachment</a></th>
-    <th> Job Status </th>
+    <th> Job Status/LAVA Log</th>
     <th> Resubmit </th>
     <th> FailureMsg </th>
     <th> Passed </th>
@@ -118,7 +118,7 @@
     {% else %}
     <td nowrap> {{job.name}}</td>
     {% endif %}
-    <td>{{job.job_status}} </td>
+    <td><a target='_blank' href="/lkft/lavalog/{{job.qa_job_id}}/">{{job.job_status}}</a></td>
     {% if job.job_status == 'Running' or job.job_status == 'Submitted'%}
     <td><a target='_blank' href="/lkft/cancel-job/{{job.qa_job_id}}/">Cancel</a></td>
     {% else %}
@@ -157,7 +157,7 @@
     <th> Index</th>
     <th> Job Id(Job Link)</a> </th>
     <th> Job Name(Result Attachment Link) </a></th>
-    <th> Job Status </th>
+    <th> Job Status/LAVA Log </th>
     <th> FailureMsg </th>
 </tr>
 {% for job in failed_jobs %}
@@ -169,7 +169,7 @@
     {% else %}
     <td nowrap> {{job.name}}</td>
     {% endif %}
-    <td>{{job.job_status}} </td>
+    <td><a target='_blank' href="/lkft/lavalog/{{job.qa_job_id}}/">{{job.job_status}}</a></td>
     {% if job.failure %}
     {% with job.failure as job_failure %}
     <td>{{job_failure.error_msg}} </td>

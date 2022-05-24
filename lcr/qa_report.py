@@ -8,6 +8,8 @@ import requests
 
 from abc import abstractmethod
 
+from io import BytesIO, StringIO
+
 logger = logging.getLogger(__name__)
 
 class DotDict(dict):
@@ -316,6 +318,72 @@ class LAVAApi(RESTFullApi):
         ## e.g. http://validation.linaro.org/api/v0.2/jobs/2345786/cancel/
         api_url = '/jobs/%s/cancel/' % lava_job_id
         return self.call_with_api_url(api_url=api_url, method='POST', returnResponse=True)
+
+    def __parse_log__(self, log_data):
+        returned_log = StringIO()
+        start_dict = False
+        tmp_dict = None
+        tmp_key = None
+        is_value = False
+        logger.debug("Length of log buffer: %s" % log_data.getbuffer().nbytes)
+        if log_data.getbuffer().nbytes > 0:
+            try:
+                for event in yaml.parse(log_data, Loader=yaml.CLoader):
+                    if isinstance(event, yaml.MappingStartEvent):
+                        start_dict = True
+                        tmp_dict = {}
+                    if isinstance(event, yaml.MappingEndEvent):
+                        start_dict = False
+                        if tmp_dict:
+                            if 'lvl' in tmp_dict.keys():
+                                    # let's output all logs, there are seveal types for lvl:
+                                    #   target, feedback, debug, info, results, input, ...
+                                    # and (tmp_dict['lvl'] == 'target' or tmp_dict['lvl'] == 'feedback'):
+                                if 'msg' in tmp_dict.keys():
+                                    if isinstance(tmp_dict['msg'], bytes):
+                                        try:
+                                            # seems like latin-1 is the encoding used by serial
+                                            # this might not be true in all cases
+                                            returned_log.write(tmp_dict["msg"].decode('latin-1', 'ignore') + "\n")
+                                        except ValueError:
+                                            # despite ignoring errors, they are still raised sometimes
+                                            pass
+                                    else:
+                                        returned_log.write(tmp_dict['msg'] + "\n")
+                        del tmp_dict
+                        tmp_dict = None
+                        is_value = False
+                    if start_dict is True and isinstance(event, yaml.ScalarEvent):
+                        if is_value is False:
+                            # the event.value is a dict key
+                            tmp_key = event.value
+                            is_value = True
+                        else:
+                            # the event.value is a dict value
+                            tmp_dict.update({tmp_key: event.value})
+                            is_value = False
+            except (yaml.scanner.ScannerError, yaml.parser.ParserError):
+                log_data.seek(0)
+                wrapper = TextIOWrapper(log_data, encoding='utf-8')
+                logger.error("Problem parsing LAVA log\n" + wrapper.read() + "\n" + traceback.format_exc())
+
+        return returned_log.getvalue().replace("\x00", "")
+
+    def get_lava_log(self, lava_job_id=None):
+        # https://validation.linaro.org/scheduler/job/3365241/log_file/plain
+        url_log_plain = "https://%s/scheduler/job/%s/log_file/plain?user=%s&token=%s" % (self.domain, lava_job_id, self.username, self.api_token)
+        r = self.call_with_full_url(request_url=url_log_plain, returnResponse=True)
+        if not r.ok and r.status_code == 404:
+            #raise UrlNotFoundException(r, url=url_log_plain)
+            logger.warn("LAVA Log not found: " + "https://%s/scheduler/job/%s/log_file/plain" % (self.domain, lava_job_id) )
+            raw_logs = BytesIO()
+        elif not r.ok or r.status_code != 200:
+            #raise Exception(r.url, r.reason, r.status_code)
+            logger.warn("Failed to get LAVA Log for %s because of error: " + "https://%s/scheduler/job/%s/log_file/plain" % (self.domain, lava_job_id) + "\n" +  Exception(r.url, r.reason, r.status_code))
+            raw_logs = BytesIO()
+
+        raw_logs = BytesIO(r.content)
+        return self.__parse_log__(raw_logs)
 
 
 class QAReportApi(RESTFullApi):

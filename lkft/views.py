@@ -1772,6 +1772,8 @@ def list_jobs(request):
     classified_jobs = get_classified_jobs(jobs=jobs)
     jobs_to_be_checked = classified_jobs.get('final_jobs')
     resubmitted_duplicated_jobs = classified_jobs.get('resubmitted_or_duplicated_jobs')
+    for job in resubmitted_duplicated_jobs:
+        job['qa_job_id'] = job.get('id')
 
     download_attachments_save_result(jobs=jobs, fetch_latest=fetch_latest_from_qa_report)
     failures = {}
@@ -1922,6 +1924,22 @@ def list_jobs(request):
                             }
                 )
 
+def get_job_lavalog(request, qa_job_id):
+    qa_job = qa_report_api.get_job_with_id(qa_job_id)
+    lava_config = find_lava_config(qa_job.get('external_url'))
+    if not lava_config:
+        err_msg = 'lava server is not found for job: %s' % job.get('url')
+        logger.error(err_msg)
+        return HttpResponse("ERROR:%s" % err_msg, status=200)
+    else:
+        lava_log = qa_report.LAVAApi(lava_config=lava_config).get_lava_log(lava_job_id=qa_job.get('job_id'))
+        response = HttpResponse(content_type='application/text')
+        response['Content-Disposition'] = 'attachment; filename="lava-log-%s.log"' % (qa_job.get('job_id'))
+        response.write("LAVA Job URL: %s\n" % qa_job.get('external_url'))
+        response.write("\n")
+        response.write(lava_log)
+
+        return response
 
 def get_bug_hardware_from_environment(environment):
     if environment.find('hi6220-hikey')>=0:
