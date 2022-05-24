@@ -134,3 +134,16 @@ fi
 ## 3. python manage.py createsuperuser to create a new user
 ## 4. setup build configs, lava uses from the admin ui
 ## 5. restartwith python manage.py runserver 0.0.0.0:9000
+
+## AttributeError: module 'yaml' has no attribute 'CLoader'
+# https://pyyaml.org/wiki/PyYAMLDocumentation
+# $ wget -c http://pyyaml.org/download/libyaml/yaml-0.2.5.tar.gz
+# $ tar xvf yaml-0.2.5.tar.gz
+# $ cd yaml-0.2.5/
+# $ ./configure
+# $ make
+# $ sudo make instal
+# $ wget -c http://pyyaml.org/download/pyyaml/PyYAML-5.3.1.tar.gz
+# $ tar xvf PyYAML-5.3.1.tar.gz
+# $ cd PyYAML-5.3.1/
+# $ python setup.py --with-libyaml install
