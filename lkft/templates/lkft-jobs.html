@@ -82,6 +82,11 @@
     <th> Kernel Tool Chain</th> <td><a href="{{ build_meta.toolchain }}">{{ build_meta.toolchain }}</a></td>
 </tr>
 {% endif %}
+
+{% if build_meta.pipeline_trigger_url %}
+<tr> <th> Pipeline Trigger URL</th> <td><a href="{{ build_meta.pipeline_trigger_url }}">{{ build_meta.pipeline_trigger_url}}</a></td></tr>
+{% endif %}
+
 </table>
 </div>
 {% endif %}

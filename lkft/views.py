@@ -1749,6 +1749,8 @@ def get_build_metadata(build_metadata_url=None, project_name=None):
     build_metadata['cts_url'] = build_metadata_raw.get('cts-url')
     build_metadata['cts_version'] = get_cts_vts_version_from(build_metadata_raw.get('cts-url'), default_cts_vts_version=build_metadata_raw.get('cts-version'))
 
+    build_metadata['pipeline_trigger_url'] = build_metadata_raw.get('pipeline.trigger.url')
+
     return build_metadata
 
 
