@@ -23,6 +23,7 @@ urlpatterns = [
     url(r'^alljobs/.*$', views.list_all_jobs, name='list_all_jobs'),
     url(r'^file-bug/.*$', views.file_bug, name='file_bug'),
     url(r'^resubmit-job/.*$', views.resubmit_job, name='resubmit_job'),
+    url(r'^resubmit-job-manual/(%s)/$' % (numerical_pat), views.resubmit_job_manual, name='resubmit_job_manual'),
     url(r'^cancel-job/(%s)/$' % (numerical_pat), views.cancel_job, name='cancel_job'),
     url(r'^cancel-build/(%s)/$' % (numerical_pat), views.cancel_build, name='cancel_build'),
     url(r'^cancel-kernelchange/(%s)/(%s)$' % (basic_pat, basic_pat), views.cancel_kernelchange, name='cancel_kernelchange'),

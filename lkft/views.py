@@ -22,6 +22,7 @@ import tarfile
 import threading
 import tempfile
 import xml.etree.ElementTree as ET
+import yaml
 import zipfile
 
 from django.contrib.auth.decorators import login_required, permission_required
@@ -2293,6 +2294,119 @@ def resubmit_job(request):
                    'results': results,
                   }
     )
+
+
+class JobResubmissionForm(forms.Form):
+    lava_job_name = forms.CharField(label='LAVA Job Name', widget=forms.TextInput(attrs={'size': 80}))
+    qa_project_full_name = forms.CharField(label='Project Full Name', widget=forms.TextInput(attrs={'size': 80}))
+    # project_id = forms.CharField(label='Project Id.')
+    qa_build_version = forms.CharField(label='Build Version', widget=forms.TextInput(attrs={'size': 80}))
+    # build_id = forms.CharField(label='Build Id.')
+    qa_env = forms.CharField(label='Environment', widget=forms.TextInput(attrs={'size': 80}))
+    qa_job_id = forms.CharField(label='QAReport job Id.')
+    qa_job_original_url = forms.CharField(label='Original QAReport Job Url', widget=forms.TextInput(attrs={'size': 80}))
+    lava_job_original_url = forms.CharField(label='Original LAVA Job Url', widget=forms.TextInput(attrs={'size': 80}))
+    definition = forms.CharField(label='Definition', widget=forms.Textarea(attrs={'cols': 80, 'rows': 30}))
+
+@login_required
+@permission_required('lkft.admin_projects')
+def resubmit_job_manual(request, qa_job_id):
+    logger.info('user: %s is going to resubmit job after edit: %s' % (request.user, str(qa_job_id)))
+    try:
+        from yaml import CSafeDumper as SafeDumper
+    except ImportError:
+        from yaml import SafeDumper
+
+    # handle compatibility for yaml.safe_dump
+    def yaml_safe_dump(data, *args, **kwargs):
+        return yaml.dump(data, *args, Dumper=SafeDumper, **kwargs)
+
+
+    results = []
+    qa_job = qa_report_api.get_job_with_id(qa_job_id)
+    qa_job_original_url = qa_report_api.get_job_api_url(qa_job_id).strip('/')
+    if request.method == 'GET':
+        job_definition =  qa_report_api.get_job_definition(qa_job.get('definition'))
+        qa_job_environment = qa_job.get('environment')
+
+        qa_project_url = qa_job.get('target')
+        qa_project = qa_report_api.get_project_with_url(qa_project_url)
+        qa_project_full_name = qa_project.get('full_name')
+
+        qa_build_url = qa_job.get('target_build')
+        qa_build_id = qa_build_url.strip('/').split('/')[-1]
+        qa_build = qa_report_api.get_build_with_url(qa_build_url)
+        qa_build_version = qa_build.get('version')
+
+        form_initial = {}
+        form_initial['lava_job_name'] = qa_job.get('name')
+        form_initial['qa_project_full_name'] = qa_project_full_name
+        form_initial['qa_build_version'] = qa_build_version
+        form_initial['qa_env'] = qa_job_environment
+        form_initial['qa_job_id'] = qa_job_id
+        form_initial['qa_job_original_url'] = qa_job_original_url
+        form_initial['lava_job_original_url'] = qa_job.get('external_url')
+        form_initial['definition'] = yaml_safe_dump(job_definition)
+
+        form = JobResubmissionForm(initial=form_initial)
+
+        return render(request, 'lkft-job-resubmit-manual.html',
+                {
+                    "form": form,
+                    "qa_job_id": qa_job_id,
+                })
+    else: #for POST method
+        form = JobResubmissionForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            results = []
+
+            qa_project_full_name = cd['qa_project_full_name']
+
+            qa_team = qa_project_full_name.split('/')[0]
+            qa_project = qa_project_full_name.split('/')[1]
+            qa_build = cd['qa_build_version']
+            job_definition = cd['definition']
+            qa_env = cd['qa_env']
+
+            lava_job_original_url = cd['lava_job_original_url']
+            qa_job_original_url = cd['lava_job_original_url']
+
+            res = qa_report_api.submitjob_with_definition(qa_team, qa_project, qa_build, qa_env, lava_job_original_url, job_definition)
+            if res.content:
+                logger.info("res after submission: res.content=" + str(res.content))
+            if res.text:
+                logger.info("res after submission: res.text=" + str(res.text))
+            if res.status_code:
+                logger.info("res after submission: res.status_code=" + str(res.status_code))
+            if res.ok:
+                qa_job_new = qa_report_api.get_job_with_id(res.text)
+                results.append({
+                    'qa_job_url': qa_job_original_url,
+                    'old': qa_job,
+                    'new': qa_job_new,
+                    'error_msg': None
+                    })
+            else:
+                results.append({
+                'qa_job_url': qa_job_original_url,
+                'old': qa_job,
+                'new': "",
+                'error_msg': 'Reason: %s<br/>Status Code: %s<br/>Url: %s' % (res.reason, res.status_code, res.url)
+            })
+
+            return render(request, 'lkft-job-resubmit.html',
+                        {
+                            'results': results,
+                            "qa_job_id": qa_job_id,
+                        }
+                    )
+        else:
+            return render(request, 'lkft-job-resubmit-manual.html',
+                {
+                    "form": form,
+                    "qa_job_id": qa_job_id,
+                })
 
 
 @login_required

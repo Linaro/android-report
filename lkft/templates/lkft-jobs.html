@@ -122,7 +122,9 @@
     {% if job.job_status == 'Running' or job.job_status == 'Submitted'%}
     <td><a target='_blank' href="/lkft/cancel-job/{{job.qa_job_id}}/">Cancel</a></td>
     {% else %}
-    <td><a target='_blank' href="/lkft/resubmit-job/?qa_job_id={{job.qa_job_id}}">Resubmit</a> </td>
+    <td>
+        <a target='_blank' href="/lkft/resubmit-job/?qa_job_id={{job.qa_job_id}}">Resubmit</a>&nbsp;/&nbsp;<a target='_blank' href="/lkft/resubmit-job-manual/{{job.qa_job_id}}">Manual</a>
+    </td>
     {% endif %}
     {% if job.failure %}
     {% with job.failure as job_failure %}

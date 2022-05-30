@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import yaml
+
 import json
 import logging
+import re
 import requests
+import yaml
 
 from abc import abstractmethod
-
 from io import BytesIO, StringIO
+from ruamel.yaml import YAML
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -568,6 +571,32 @@ class QAReportApi(RESTFullApi):
     def forceresubmit(self, qa_job_id):
         api_url = 'api/forceresubmit/%s' % qa_job_id
         return self.call_with_api_url(api_url=api_url, method='POST', returnResponse=True)
+
+
+    '''
+        lava_url_base: https://validation.linaro.org/
+    '''
+    def submitjob_with_definition(self, qa_team, qa_project, qa_build, qa_env, lava_url_base, job_definition):
+        api_url = 'api/submitjob/%s/%s/%s/%s' % (qa_team, qa_project, qa_build, qa_env)
+
+        def simple_yaml_check(yaml_string):
+            logger.debug(yaml_string)
+            yaml = YAML()
+            # ruamel does not provide a mechanism to dump to string, so use StringIO
+            # to catch it
+            output = StringIO()
+            yaml.dump(yaml.load(yaml_string), output)
+            # strip empty lines from output
+            return re.sub(r"^\s*$\n", "", output.getvalue(), flags=re.MULTILINE)
+
+        post_data = {
+            "definition": simple_yaml_check(job_definition),
+            "backend": urlsplit(
+                lava_url_base
+            ).netloc,  # qa-reports backends are named as lava instances, something like "validation.linaro.org"
+        }
+
+        return self.call_with_api_url(api_url=api_url, method='POST', returnResponse=True, post_data=post_data)
 
 
     '''
