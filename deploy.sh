@@ -64,6 +64,7 @@ pip install -r ${instance_dir}/requirements.txt
 #pip install bugzilla
 ## pip install Pillow
 ## pip install rst2pdf
+python3 -m pip install ruamel.yaml
 
 # https://docs.djangoproject.com/en/1.11/intro/tutorial01/
 python3 -m django --version
@@ -147,3 +148,34 @@ fi
 # $ tar xvf PyYAML-5.3.1.tar.gz
 # $ cd PyYAML-5.3.1/
 # $ python setup.py --with-libyaml install
+
+## How to install ruamel.yml for the following problem
+## $ tail -f logfile
+##  File "<frozen importlib._bootstrap>", line 219, in _call_with_frames_removed
+##   File "xxxxxx/lkft/urls.py", line 3, in <module>
+##     from . import views
+##   File "xxxxxx/lkft/views.py", line 37, in <module>
+##     from lcr import qa_report, bugzilla
+##   File "xxxxxx/lcr/qa_report.py", line 13, in <module>
+##     from ruamel.yaml import YAML
+## ModuleNotFoundError: No module named 'ruamel'
+## $
+## $ pip3 install ruamel.yml
+## ERROR: Could not find a version that satisfies the requirement ruamel.yml (from versions: none)
+## ERROR: No matching distribution found for ruamel.yml
+## $ python3 -m pip install ruamel.yaml
+## Collecting ruamel.yaml
+##   Downloading ruamel.yaml-0.17.21-py3-none-any.whl (109 kB)
+##      |████████████████████████████████| 109 kB 31.9 MB/s
+## Collecting ruamel.yaml.clib>=0.2.6
+##   Downloading ruamel.yaml.clib-0.2.6.tar.gz (180 kB)
+##      |████████████████████████████████| 180 kB 50.6 MB/s
+##   Preparing metadata (setup.py) ... done
+## Building wheels for collected packages: ruamel.yaml.clib
+##   Building wheel for ruamel.yaml.clib (setup.py) ... done
+##   Created wheel for ruamel.yaml.clib: filename=ruamel.yaml.clib-0.2.6-cp36-cp36m-linux_aarch64.whl size=481222 sha256=6a7a334ceeb923cd50862240077b3c53171b83553aa9178793a160dc9491a80a
+##   Stored in directory: /home/yongqin.liu/.cache/pip/wheels/70/2f/83/600ac5a68f390250d734c9cc74fb7914d15eab03877a7e0fbd
+## Successfully built ruamel.yaml.clib
+## Installing collected packages: ruamel.yaml.clib, ruamel.yaml
+## Successfully installed ruamel.yaml-0.17.21 ruamel.yaml.clib-0.2.6
+## $
