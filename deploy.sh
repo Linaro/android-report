@@ -64,7 +64,6 @@ pip install -r ${instance_dir}/requirements.txt
 #pip install bugzilla
 ## pip install Pillow
 ## pip install rst2pdf
-python3 -m pip install ruamel.yaml
 
 # https://docs.djangoproject.com/en/1.11/intro/tutorial01/
 python3 -m django --version

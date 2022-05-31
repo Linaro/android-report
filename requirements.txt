@@ -9,3 +9,4 @@ reportlab
 psycopg2
 python-dateutil
 matplotlib
+ruamel.yaml
