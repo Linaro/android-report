@@ -556,6 +556,7 @@ class Command(BaseCommand):
                 dest="exact_version_2",
                 default="",
                 required=False)
+
         parser.add_argument("--reverse-build-order",
                 help="When both --exact-version-1 and --exact-version-2 specified,\
                  normally will try to find the regressions in --exact-version-1 against --exact-version-2,\
@@ -563,6 +564,12 @@ class Command(BaseCommand):
                  agains the build of --exact-version-1",
                 dest="reverse_build_order",
                 action='store_true',
+                required=False)
+
+        parser.add_argument("--qareport-project",
+                help="Specify the QA Report project to check",
+                dest="qareport_project",
+                default=None,
                 required=False)
 
 
@@ -577,17 +584,21 @@ class Command(BaseCommand):
         opt_exact_ver1 = options.get('exact_version_1')
         opt_exact_ver2 = options.get('exact_version_2')
         reverse_build_order = options.get('reverse_build_order')
+        qareport_project = options.get('qareport_project')
 
         # map kernel to all available kernel, board, OS combos that match
         work = []
         unique_kernel_info = { }
         unique_kernels=[]
 
-        work = rawkernels.get(kernel)
-        if work is None:
-            print("The specified kernel is not supported yet:", kernel)
-            print("The supported kernels are:", ' '.join(rawkernels.keys()))
-            return
+        if qareport_project:
+            work = [ qareport_project ]
+        else:
+            work = rawkernels.get(kernel)
+            if work is None:
+                print("The specified kernel is not supported yet:", kernel)
+                print("The supported kernels are:", ' '.join(rawkernels.keys()))
+                return
 
         flakes = process_flakey_file(path_flakefile)
 
