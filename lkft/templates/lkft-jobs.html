@@ -99,6 +99,7 @@
     <th> Job Id/Job Link</a> </th>
     <th> Job Name/Attachment</a></th>
     <th> Job Status/LAVA Log</th>
+    <th> Duration </th>
     <th> Resubmit </th>
     <th> FailureMsg </th>
     <th> Passed </th>
@@ -120,8 +121,10 @@
     {% endif %}
     <td><a target='_blank' href="/lkft/lavalog/{{job.qa_job_id}}/">{{job.job_status}}</a></td>
     {% if job.job_status == 'Running' or job.job_status == 'Submitted'%}
+    <td nowrap> -- </td>
     <td><a target='_blank' href="/lkft/cancel-job/{{job.qa_job_id}}/">Cancel</a></td>
     {% else %}
+    <td nowrap> {{job.duration}}</td>
     <td>
         <a target='_blank' href="/lkft/resubmit-job/?qa_job_id={{job.qa_job_id}}">Resubmit</a>&nbsp;/&nbsp;<a target='_blank' href="/lkft/resubmit-job-manual/{{job.qa_job_id}}">Manual</a>
     </td>

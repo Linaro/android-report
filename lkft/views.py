@@ -47,7 +47,7 @@ from .models import KernelChange, CiBuild, ReportBuild, ReportProject, ReportJob
 qa_report_def = QA_REPORT[QA_REPORT_DEFAULT]
 qa_report_api = qa_report.QAReportApi(qa_report_def.get('domain'), qa_report_def.get('token'))
 
-jenkins_def = JENKINS[GITLAB_DEFAULT]
+jenkins_def = JENKINS[JENKINS_DEFAULT]
 jenkins_api = qa_report.JenkinsApi(jenkins_def.get('domain'), jenkins_def.get('token'), user=jenkins_def.get('user'))
 
 gitlab_def = GITLAB[JENKINS_DEFAULT]
@@ -885,8 +885,7 @@ def get_project_info(project):
     logger.info("%s: finished to get information for project", project.get('name'))
 
 
-def thread_pool(func=None, elements=[]):
-    subgroup_count = 10
+def thread_pool(func=None, elements=[], subgroup_count=10):
     number_of_elements = len(elements)
     number_of_subgroup = math.ceil(number_of_elements/subgroup_count)
     finished_count = 0
@@ -1782,6 +1781,18 @@ def list_jobs(request):
     benchmarks_res = []
     for job in jobs_to_be_checked:
         job['qa_job_id'] = job.get('id')
+
+        job_status = job.get('job_status')
+        if job_status == 'Running' or job_status == 'Submitted':
+            job['duration'] = datetime.timedelta(milliseconds=0)
+        else:
+            lava_config = find_lava_config(job.get('external_url'))
+            job_lava_info = qa_report.LAVAApi(lava_config=lava_config).get_job(job_id=job['job_id'])
+            job_start_time = datetime.datetime.strptime(str(job_lava_info['start_time']), '%Y-%m-%dT%H:%M:%S.%fZ')
+            job_end_time =  datetime.datetime.strptime(str(job_lava_info['end_time']), '%Y-%m-%dT%H:%M:%S.%fZ')
+            job_duration = job_end_time - job_start_time
+            job['duration'] = job_duration
+
         short_desc = "%s: %s job failed to get test result with %s" % (project_name, job.get('name'), build.get('version'))
         new_bug_url = '%s&rep_platform=%s&version=%s&short_desc=%s' % ( bugzilla_instance.get_new_bug_url_prefix(),
                                                                           get_hardware_from_pname(pname=project_name, env=job.get('environment')),
