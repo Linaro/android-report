@@ -13,7 +13,8 @@ exact_ver2=""
 opt_exact_ver2=""
 qareport_project=""
 opt_qareport_project=""
-
+trim_number="0"
+opt_trim_number=""
 
 function printUsage(){
     # e.g.
@@ -21,7 +22,7 @@ function printUsage(){
     # ./kernelreport.sh 5.10 --exact-version-1 5.10.40 --no-check-kernel-version
 
     echo "Please run like this:"
-    echo -e "\t${f_name} kernel_ver [--exact-version-1 exact_ver1 [--exact-version-2 exact_ver2 [--reverse-build-order]]] [--no-check-kernel-version] [--qareport-project qareport-project]"
+    echo -e "\t${f_name} kernel_ver [--exact-version-1 exact_ver1 [--exact-version-2 exact_ver2 [--reverse-build-order]]] [--no-check-kernel-version] [--qareport-project qareport-project] [--trim-number trima-number]"
 }
 
 function parseArgs(){
@@ -60,6 +61,15 @@ function parseArgs(){
                 fi
                 qareport_project="$2"
                 opt_qareport_project="--qareport-project ${qareport_project}"
+                shift 2
+                ;;
+            X--trim-number)
+                if [ -z "${2}" ]; then
+                    echo "Please specify value for the --trim-number option"
+                    exit 1
+                fi
+                trim_number="$2"
+                opt_trim_number="--trim-number ${trim_number}"
                 shift 2
                 ;;
             X-h|X--help)
@@ -126,7 +136,8 @@ wget -c https://raw.githubusercontent.com/tom-gall/android-qa-classifier-data/ma
         ${opt_exact_ver1} \
         ${opt_exact_ver2} \
         ${opt_reverse_build_order} \
-        ${opt_qareport_project}
+        ${opt_qareport_project} \
+        ${opt_trim_number}
 
 if [ -f "${f_report}.scribble" ]; then
     mv -f "${f_report}" "${f_report}.successprojects"

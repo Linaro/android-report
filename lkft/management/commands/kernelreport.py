@@ -12,7 +12,6 @@ import logging
 import os
 import re
 import yaml
-from dateutil import parser
 import datetime
 import subprocess
 
@@ -454,7 +453,7 @@ def add_unique_kernel(unique_kernels, kernel_version, combo, unique_kernel_info)
         kernellist.append(combo)
 
 
-def report_results(output, run, regressions, combo, priorrun, flakes, antiregressions):
+def report_results(output, run, regressions, combo, priorrun, flakes, antiregressions, trim_number=0):
     #pdb.set_trace()
     numbers = run['numbers']
     project_info = projectids[combo]
@@ -478,22 +477,34 @@ def report_results(output, run, regressions, combo, priorrun, flakes, antiregres
     regressions_failure = [ failure for failure in regressions if failure.get('result') == 'fail' ]
     regressions_assumption = [ failure for failure in regressions if failure.get('result') == 'ASSUMPTION_FAILURE' ]
 
-    def print_regressions(output, target_regressions, flakes, project_info):
+    def print_regressions(output, target_regressions, flakes, project_info, trim_number=0):
         if 'baseOS' in project_info: 
             OS = project_info['baseOS']
         else:
             OS = project_info['OS']
-        for regression in target_regressions:
-            # pdb.set_trace()
-            testtype = classifyTest(flakes, regression['test_name'], project_info['hardware'], project_info['kern'], OS)
-            output.write("        " + testtype + " " + regression['module_name'] +"." + regression['test_name'] + "\n")
+        if trim_number > 0 and len(target_regressions) > trim_number:
+            print_number=int(trim_number/2)
+            for regression in target_regressions[:print_number]:
+                # pdb.set_trace()
+                testtype = classifyTest(flakes, regression['test_name'], project_info['hardware'], project_info['kern'], OS)
+                output.write("        " + testtype + " " + regression['module_name'] +"." + regression['test_name'] + "\n")
+            output.write("    [...%d lines removed...]\n" % (len(target_regressions) - print_number * 2))
+            for regression in target_regressions[-print_number:]:
+                # pdb.set_trace()
+                testtype = classifyTest(flakes, regression['test_name'], project_info['hardware'], project_info['kern'], OS)
+                output.write("        " + testtype + " " + regression['module_name'] +"." + regression['test_name'] + "\n")
+        else:
+            for regression in target_regressions:
+                # pdb.set_trace()
+                testtype = classifyTest(flakes, regression['test_name'], project_info['hardware'], project_info['kern'], OS)
+                output.write("        " + testtype + " " + regression['module_name'] +"." + regression['test_name'] + "\n")
 
     if len(regressions_failure) > 0:
         output.write("    " + str(len(regressions_failure)) + " Test Regressions:\n")
-        print_regressions(output, regressions_failure, flakes, project_info)
+        print_regressions(output, regressions_failure, flakes, project_info, trim_number=trim_number)
     if len(regressions_assumption) > 0:
         output.write("    " + str(len(regressions_assumption)) + " New Assumption Failures:\n")
-        print_regressions(output, regressions_assumption, flakes, project_info)
+        print_regressions(output, regressions_assumption, flakes, project_info, trim_number=trim_number)
 
     if len(regressions) > 0:
         output.write("    " + "Current jobs\n")
@@ -557,6 +568,13 @@ class Command(BaseCommand):
                 default="",
                 required=False)
 
+        parser.add_argument("--trim-number",
+                help="Specify how many test cases to be printed",
+                dest="trim_number",
+                type=int,
+                default=0,
+                required=False)
+
         parser.add_argument("--reverse-build-order",
                 help="When both --exact-version-1 and --exact-version-2 specified,\
                  normally will try to find the regressions in --exact-version-1 against --exact-version-2,\
@@ -583,6 +601,7 @@ class Command(BaseCommand):
         no_check_kernel_version = options.get('no_check_kernel_version')
         opt_exact_ver1 = options.get('exact_version_1')
         opt_exact_ver2 = options.get('exact_version_2')
+        trim_number = options.get('trim_number')
         reverse_build_order = options.get('reverse_build_order')
         qareport_project = options.get('qareport_project')
 
@@ -606,8 +625,8 @@ class Command(BaseCommand):
         output_errorprojects = open(f_errorprojects, "w")
         do_boilerplate(output)
 
-
         work_total_numbers = qa_report.TestNumbers()
+        trimmed_lines = 0
         for combo in work:
             project_info = projectids[combo]
             project_id = project_info.get('project_id', None)
@@ -670,7 +689,14 @@ class Command(BaseCommand):
                 goodruns[1].get('numbers').number_regressions = len(regressions)
                 goodruns[1].get('numbers').number_antiregressions = len(antiregressions)
                 work_total_numbers.addWithTestNumbers(goodruns[1].get('numbers'))
-                report_results(output, goodruns[1], regressions, combo, goodruns[0], flakes, antiregressions)
+                report_results(output, goodruns[1], regressions, combo, goodruns[0], flakes, antiregressions, trim_number=trim_number)
+
+                if trim_number > 0 and len(regressions) > trim_number:
+                    print_number = int(trim_number/2)
+                    trimmed_lines = trimmed_lines + (len(regressions) - print_number * 2)
+
+        if trimmed_lines > 0:
+            output_errorprojects.write("\nNOTE: %d lines were removed from this report.\n" % trimmed_lines)
 
         report_kernels_in_report(path_outputfile, unique_kernels, unique_kernel_info, work_total_numbers)
         output.close()
