@@ -4,6 +4,16 @@
 
 {% block headline %}<h1> Job Resubmission </h1>{% endblock %}
 
+{% block javascript%}
+<!-- <script src="/static/report/jquery.min.js"></script>
+<script type="text/javascript">
+$('#id_no_update').click(function() {
+    var disable = $(this).is(':checked');
+    $('#id_definition').attr('disabled', disable);
+});
+</script> -->
+{% endblock javascript%}
+
 {% block content %}
 <div align="center">
 <div>{{ form.errors }}</div>

@@ -21,6 +21,7 @@ import sys
 import tarfile
 import threading
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 import yaml
 import zipfile
@@ -42,7 +43,7 @@ from lkft.lkft_config import find_expect_cibuilds
 from lkft.lkft_config import get_qa_server_project, get_supported_branches
 from lkft.lkft_config import is_benchmark_job, is_cts_vts_job, get_benchmark_testsuites, get_expected_benchmarks
 
-from .models import KernelChange, CiBuild, ReportBuild, ReportProject, ReportJob, TestSuite, TestCase
+from .models import KernelChange, CiBuild, ReportBuild, ReportProject, ReportJob, TestSuite, TestCase, JobMeta
 
 qa_report_def = QA_REPORT[QA_REPORT_DEFAULT]
 qa_report_api = qa_report.QAReportApi(qa_report_def.get('domain'), qa_report_def.get('token'))
@@ -570,7 +571,7 @@ def get_classified_jobs(jobs=[]):
     # so assuming that there is no "-(\d+)-" pattern in the kernel branch name
     job_name_pattern = re.compile('^lkft-android-(?P<kernel_branch>\S+?)-(?P<ci_build_number>\d+?)-(?P<job_name_short>\S+)$')
     resubmitted_job_urls = [ job.get('parent_job') for job in jobs if job.get('parent_job')]
-    job_names = []
+    job_name_environments = []
     jobs_to_be_checked = []
     resubmitted_or_duplicated_jobs = []
 
@@ -588,6 +589,7 @@ def get_classified_jobs(jobs=[]):
     # and the job for the old build would not be resubmitted if new build is retriggered
     sorted_jobs = sorted(jobs, key=get_job_external_url, reverse=True)
     for job in sorted_jobs:
+        environment = job.get('environment')
         if job.get('url') in resubmitted_job_urls:
             # ignore jobs which were resubmitted
             job['resubmitted'] = True
@@ -598,17 +600,17 @@ def get_classified_jobs(jobs=[]):
         if match:
             # kernel_branch= match.group('kernel_branch')
             # ci_build_number = match.group('ci_build_number')
-            job_name_short= match.group('job_name_short')
+            job_name_short = match.group('job_name_short')
         else:
             job_name_short = job.get('name')
 
-        if job_name_short in job_names:
+        if f"{job_name_short}|{environment}" in job_name_environments:
             job['duplicated'] = True
             resubmitted_or_duplicated_jobs.append(job)
             continue
 
         jobs_to_be_checked.append(job)
-        job_names.append(job_name_short)
+        job_name_environments.append(f"{job_name_short}|{environment}")
 
     return {
         'final_jobs': jobs_to_be_checked,
@@ -1918,6 +1920,18 @@ def list_jobs(request):
 
     build_metadata = get_build_metadata(build_metadata_url=build.get('metadata'))
     build_metadata['android_version'] = android_version
+    logger.info("type(build_metadata.get('build_url'))=%s" % build_metadata.get('build_url'))
+    logger.info("type(build_metadata.get('android_url'))=%s" % build_metadata.get('android_url'))
+    if build_metadata.get('build_url') and type(build_metadata.get('build_url')) != list:
+        build_metadata['build_url'] = [ build_metadata.get('build_url') ]
+    if build_metadata.get('android_url') and type(build_metadata.get('android_url')) != list:
+        build_metadata['android_url'] = [ build_metadata.get('android_url') ]
+    if build_metadata.get('vendor_fingerprint') and type(build_metadata.get('vendor_fingerprint')) != list:
+        build_metadata['vendor_fingerprint'] = [ build_metadata.get('vendor_fingerprint') ]
+    if build_metadata.get('gsi_url') and type(build_metadata.get('gsi_url')) != list:
+        build_metadata['gsi_url'] = [ build_metadata.get('gsi_url') ]
+    if build_metadata.get('gsi_fingerprint') and type(build_metadata.get('gsi_fingerprint')) != list:
+        build_metadata['gsi_fingerprint'] = [ build_metadata.get('gsi_fingerprint') ]
 
     return render(request, 'lkft-jobs.html',
                            {
@@ -2308,15 +2322,17 @@ def resubmit_job(request):
 
 
 class JobResubmissionForm(forms.Form):
-    lava_job_name = forms.CharField(label='LAVA Job Name', widget=forms.TextInput(attrs={'size': 80}))
+    lava_job_name = forms.CharField(label='Oririnal LAVA Job Name', widget=forms.TextInput(attrs={'size': 80}))
     qa_project_full_name = forms.CharField(label='Project Full Name', widget=forms.TextInput(attrs={'size': 80}))
     # project_id = forms.CharField(label='Project Id.')
     qa_build_version = forms.CharField(label='Build Version', widget=forms.TextInput(attrs={'size': 80}))
     # build_id = forms.CharField(label='Build Id.')
     qa_env = forms.CharField(label='Environment', widget=forms.TextInput(attrs={'size': 80}))
-    qa_job_id = forms.CharField(label='QAReport job Id.')
-    qa_job_original_url = forms.CharField(label='Original QAReport Job Url', widget=forms.TextInput(attrs={'size': 80}))
-    lava_job_original_url = forms.CharField(label='Original LAVA Job Url', widget=forms.TextInput(attrs={'size': 80}))
+    qa_job_id = forms.CharField(label='QAReport Job Id.')
+    no_update = forms.BooleanField(label="No Update On Job Definition", required=False)
+    qa_job_original_url = forms.CharField(label='Original QAReport Job URL', widget=forms.TextInput(attrs={'size': 80}))
+    lava_job_original_url = forms.CharField(label='Original LAVA Job URL', widget=forms.TextInput(attrs={'size': 80}))
+    resubmission_reason = forms.CharField(label='Reason For Resubmission', required=True, widget=forms.Textarea(attrs={'cols': 80, 'rows': 1}))
     definition = forms.CharField(label='Definition', widget=forms.Textarea(attrs={'cols': 80, 'rows': 30}))
 
 @login_required
@@ -2332,6 +2348,10 @@ def resubmit_job_manual(request, qa_job_id):
     def yaml_safe_dump(data, *args, **kwargs):
         return yaml.dump(data, *args, Dumper=SafeDumper, **kwargs)
 
+    if request.method == 'GET':
+        no_update = request.GET.get('no_update', "true").lower() == 'true'
+    else:
+        no_update = request.POST.get('no_update', "true").lower() == 'true'
 
     results = []
     qa_job = qa_report_api.get_job_with_id(qa_job_id)
@@ -2355,11 +2375,23 @@ def resubmit_job_manual(request, qa_job_id):
         form_initial['qa_build_version'] = qa_build_version
         form_initial['qa_env'] = qa_job_environment
         form_initial['qa_job_id'] = qa_job_id
+        form_initial['no_update'] = no_update
         form_initial['qa_job_original_url'] = qa_job_original_url
         form_initial['lava_job_original_url'] = qa_job.get('external_url')
+        form_initial['resubmission_reason'] = ""
         form_initial['definition'] = yaml_safe_dump(job_definition)
 
         form = JobResubmissionForm(initial=form_initial)
+        form.fields['lava_job_name'].widget.attrs['readonly'] = "readonly"
+        form.fields['qa_project_full_name'].widget.attrs['readonly'] = "readonly"
+        form.fields['qa_build_version'].widget.attrs['readonly'] = "readonly"
+        form.fields['qa_env'].widget.attrs['readonly'] = "readonly"
+        form.fields['qa_job_id'].widget.attrs['readonly'] = "readonly"
+        form.fields['qa_job_original_url'].widget.attrs['readonly'] = "readonly"
+        form.fields['lava_job_original_url'].widget.attrs['readonly'] = "readonly"
+        form.fields['no_update'].widget.attrs['readonly'] = "readonly"
+        if no_update:
+            form.fields['definition'].widget.attrs['readonly'] = "readonly"
 
         return render(request, 'lkft-job-resubmit-manual.html',
                 {
@@ -2379,32 +2411,74 @@ def resubmit_job_manual(request, qa_job_id):
             qa_build = cd['qa_build_version']
             job_definition = cd['definition']
             qa_env = cd['qa_env']
-
+            resubmission_reason = cd['resubmission_reason']
+            no_update = cd['no_update']
+            qa_job_id = cd['qa_job_id']
             lava_job_original_url = cd['lava_job_original_url']
-            qa_job_original_url = cd['lava_job_original_url']
+            qa_job_original_url = cd['qa_job_original_url']
 
-            res = qa_report_api.submitjob_with_definition(qa_team, qa_project, qa_build, qa_env, lava_job_original_url, job_definition)
-            if res.content:
-                logger.info("res after submission: res.content=" + str(res.content))
-            if res.text:
-                logger.info("res after submission: res.text=" + str(res.text))
-            if res.status_code:
-                logger.info("res after submission: res.status_code=" + str(res.status_code))
-            if res.ok:
-                qa_job_new = qa_report_api.get_job_with_id(res.text)
+            build_url = qa_job.get('target_build')
+            build_id = build_url.strip('/').split('/')[-1]
+
+            jobs = get_jobs_for_build_from_db_or_qareport(build_id=build_id, force_fetch_from_qareport=True)
+            parent_job_urls = [ job.get('parent_job').strip('/') for job in jobs if job.get('parent_job')]
+
+            if qa_job.get('url').strip('/') in parent_job_urls:
                 results.append({
-                    'qa_job_url': qa_job_original_url,
-                    'old': qa_job,
-                    'new': qa_job_new,
-                    'error_msg': None
-                    })
+                        'qa_job_url': qa_job_original_url,
+                        'old': qa_job,
+                        'new': "",
+                        'error_msg': 'The job is a parent job, could not be resubmitted again'
+                        })
+                return render(request, 'lkft-job-resubmit.html',
+                            {
+                                'results': results,
+                                "qa_job_id": qa_job_id,
+                            }
+                        )
+
+            if no_update:
+                res = qa_report_api.forceresubmit(qa_job_id)
+                if res.ok:
+                    qa_job_new = None
+                    sleep_count = 0
+                    while sleep_count < 5:
+                        jobs = get_jobs_for_build_from_db_or_qareport(build_id=build_id, force_fetch_from_qareport=True)
+                        for job in jobs:
+                            parent_job_url = job.get('parent_job')
+                            logger.info(f"parent_job_url={parent_job_url}, qa_job_original_url={qa_job_original_url}")
+                            if parent_job_url and (parent_job_url.strip('/') == qa_job_original_url.strip('/')):
+                                qa_job_new = job
+                                break
+                        if qa_job_new is not None:
+                            break
+                        else:
+                            time.sleep(1)
+                            sleep_count = sleep_count + 1
+
+                    if qa_job_new is None:
+                        error_msg = "The job failed to be resubmitted, please check and try again"
+                    else:
+                        error_msg = None
+                        JobMeta.objects.get_or_create(qa_job_id=int(qa_job_new.get("id")), kind="ManualResubmit", resubmission_reason=resubmission_reason)
+                else:
+                    qa_job_new = None
+                    error_msg = 'Reason: %s<br/>Status Code: %s<br/>Url: %s' % (res.reason, res.status_code, res.url)
             else:
-                results.append({
-                'qa_job_url': qa_job_original_url,
-                'old': qa_job,
-                'new': "",
-                'error_msg': 'Reason: %s<br/>Status Code: %s<br/>Url: %s' % (res.reason, res.status_code, res.url)
-            })
+                res = qa_report_api.submitjob_with_definition(qa_team, qa_project, qa_build, qa_env, lava_job_original_url, job_definition)
+                if res.ok:
+                    qa_job_new = qa_report_api.get_job_with_id(res.text)
+                    error_msg = None
+                    JobMeta.objects.get_or_create(qa_job_id=int(qa_job_new.get("id")), kind="ManualResubmit", resubmission_reason=resubmission_reason)
+                else:
+                    qa_job_new = None
+                    error_msg = 'Reason: %s<br/>Status Code: %s<br/>Url: %s' % (res.reason, res.status_code, res.url)
+            results.append({
+                                'qa_job_url': qa_job_original_url,
+                                'old': qa_job,
+                                'new': qa_job_new,
+                                'error_msg': error_msg,
+                            })
 
             return render(request, 'lkft-job-resubmit.html',
                         {
@@ -2419,6 +2493,26 @@ def resubmit_job_manual(request, qa_job_id):
                     "qa_job_id": qa_job_id,
                 })
 
+def list_all_jobs_resubmitted_manually(request):
+    try:
+        per_page = int(request.GET.get('per_page', '30'))
+    except:
+        per_page = 30
+
+    jobs = JobMeta.objects.filter(kind="ManualResubmit")
+    qa_jobs = []
+    for job in jobs[:per_page]:
+        qa_job = qa_report_api.get_job_with_id(job.qa_job_id)
+        qa_job["project"] = qa_report_api.get_project_with_url(qa_job.get('target'))
+        qa_job["build"] = qa_report_api.get_build_with_url(qa_job.get('target_build'))
+        qa_job['resubmission_reason'] = job.resubmission_reason
+        qa_jobs.append(qa_job)
+
+    sorted_qa_jobs = sorted(qa_jobs, key=lambda item: item['created_at'], reverse=True)
+    return render(request, 'lkft-jobs-resubmitted-manually.html',
+                {
+                    "jobs": sorted_qa_jobs,
+                })
 
 @login_required
 @permission_required('lkft.admin_projects')

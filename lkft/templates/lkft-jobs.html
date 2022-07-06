@@ -62,7 +62,12 @@
 
 {% if build_meta.build_url %}
 <tr>
-    <th> LKFT CI Build</th> <td><a href="{{ build_meta.build_url }}">{{ build_meta.build_url }}</a></td>
+    <th> LKFT CI Build</th> <td>
+    {% for build_url in  build_meta.build_url %}
+    {% if not forloop.first %}<br/>{% endif %}
+    <a href="{{ build_url }}">{{ build_url }}</a>
+    {% endfor %}
+    </td>
 </tr>
 {% endif %}
 
@@ -96,6 +101,7 @@
 <table border="1">
 <tr> 
     <th> Index</th>
+    <th> Environment </th>
     <th> Job Id/Job Link</a> </th>
     <th> Job Name/Attachment</a></th>
     <th> Job Status/LAVA Log</th>
@@ -113,6 +119,7 @@
 {% for job in final_jobs %}
 <tr>
     <td> {{ forloop.counter }}</td>
+    <td> {{ job.environment }}</td>
     <td> <a href="{{job.external_url}}">{{job.job_id}}</a> </td>
     {% if job.attachment_url %}
     <td nowrap> <a target='_blank' href="{{job.attachment_url}}">{{job.name}} </a></td>
@@ -126,7 +133,7 @@
     {% else %}
     <td nowrap> {{job.duration}}</td>
     <td>
-        <a target='_blank' href="/lkft/resubmit-job/?qa_job_id={{job.qa_job_id}}">Resubmit</a>&nbsp;/&nbsp;<a target='_blank' href="/lkft/resubmit-job-manual/{{job.qa_job_id}}">Manual</a>
+        <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qa_job_id}}?no_update=true">Resubmit</a>&nbsp;/&nbsp;<a target='_blank' href="/lkft/resubmit-job-manual/{{job.qa_job_id}}?no_update=false">Manual</a>
     </td>
     {% endif %}
     {% if job.failure %}
@@ -160,6 +167,7 @@
 <table border="1">
 <tr>
     <th> Index</th>
+    <th> Environment </th>
     <th> Job Id(Job Link)</a> </th>
     <th> Job Name(Result Attachment Link) </a></th>
     <th> Job Status/LAVA Log </th>
@@ -168,6 +176,7 @@
 {% for job in failed_jobs %}
 <tr>
     <td> {{ forloop.counter }}</td>
+    <td> {{ job.environment }}</td>
     <td> <a href="{{job.external_url}}">{{job.job_id}}</a> </td>
     {% if job.attachment_url %}
     <td nowrap> <a href="{{job.attachment_url}}">{{job.name}} </a></td>

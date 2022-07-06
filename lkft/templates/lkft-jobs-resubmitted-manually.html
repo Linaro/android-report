@@ -1,0 +1,63 @@
+{% extends '_layouts/base.html' %}
+
+{% load static%}
+{% load escapesharp %}
+{% load startswith %}
+
+{% block title %} List for ALL Manually Resubmitted Jobs{% endblock %}
+
+{% block headline %}<h1>List for ALL Manually Resubmitted Jobs</h1>{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static "report/css/compatibility_result.css" %}">
+<script src="{% static "report/jquery.min.js" %}"></script>
+<script src="{% static "report/bootstrap.min.js" %}"></script>
+{% endblock %}
+
+{% block content %}
+
+
+  <ul class="nav nav-tabs">
+    <li class="active"><a data-toggle="tab" href="#all">List</a></li>
+  </ul>
+
+<div class="tab-content">
+    <div id="all" class="tab-pane fade in active">
+        <table border="1">
+            <tr>
+                <th> Index </th>
+                <th> Project </th>
+                <th> Build </th>
+                <th> Environment </th>
+                <th> Job </th>
+                <th> Status </th>
+                <th> Reason </th>
+            </tr>
+
+            {% for job in jobs %}
+            <tr>
+                <td> {{ forloop.counter }}</td>
+                <td>
+                {% with job.project as project %}
+                {{ project.full_name }}
+                {% endwith %}
+                </td>
+                <td>
+                {% with job.build as build %}
+                    <a target='_blank' href="/lkft/jobs/?build_id={{build.id}}&fetch_latest=true">{{ build.version }}</a>
+                {% endwith %}
+                </td>
+                <td> {{ job.environment }}</td>
+                <td>
+                    <a target='_blank' href="{{job.external_url}}">{{ job.name}}</a>
+                </td>
+                <td> {{ job.job_status}}</td>
+                <td>
+                    {{ job.resubmission_reason }}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endblock %}

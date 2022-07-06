@@ -190,6 +190,18 @@ class ReportJob(models.Model):
     objects = models.Manager()
 
 
+class JobMeta(models.Model):
+    qa_job_id = models.IntegerField(default=0)
+    kind = models.CharField(
+        max_length=32,
+        choices=(
+            ('ManualResubmit', 'ManualResubmit'),
+        ),
+        db_index=True,
+    )
+    resubmission_reason = models.TextField(null=True, blank=True, max_length=256,)
+
+
 class TestSuite(models.Model):
     report_job = models.ForeignKey(ReportJob)
 
