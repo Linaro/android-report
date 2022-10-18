@@ -30,6 +30,7 @@
                 <th> Build </th>
                 <th> Environment </th>
                 <th> Job </th>
+                <th> Created At </th>
                 <th> Status </th>
                 <th> Reason </th>
             </tr>
@@ -51,6 +52,7 @@
                 <td>
                     <a target='_blank' href="{{job.external_url}}">{{ job.name}}</a>
                 </td>
+                <td> {{ job.created_at|date:'M. d, Y, H:i'}}, &nbsp;{{ job.created_at|timesince}}</td>
                 <td> {{ job.job_status}}</td>
                 <td>
                     {{ job.resubmission_reason }}

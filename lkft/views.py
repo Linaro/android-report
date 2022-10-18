@@ -2506,6 +2506,8 @@ def list_all_jobs_resubmitted_manually(request):
         qa_job["project"] = qa_report_api.get_project_with_url(qa_job.get('target'))
         qa_job["build"] = qa_report_api.get_build_with_url(qa_job.get('target_build'))
         qa_job['resubmission_reason'] = job.resubmission_reason
+        job_created_at_str = qa_job.get("created_at")
+        qa_job["created_at"] = qa_report_api.get_aware_datetime_from_str(job_created_at_str)
         qa_jobs.append(qa_job)
 
     sorted_qa_jobs = sorted(qa_jobs, key=lambda item: item['created_at'], reverse=True)
