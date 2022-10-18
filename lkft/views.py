@@ -3293,30 +3293,10 @@ def gitlab_projects(request):
 
     gitlab_projects = [
         {
-            'project_id':'28147432',
-            'path_with_namespace':'Linaro/lkft/users/daniel.diaz/android-reporter',
-            'web_url': 'https://gitlab.com/Linaro/lkft/users/daniel.diaz/android-reporter'
-        },
-        {
              'project_id':'32703900',
              'path_with_namespace':'Linaro/lkft/users/yongqin.liu/lkft-android-build',
              'web_url': 'https://gitlab.com/Linaro/lkft/users/yongqin.liu/lkft-android-build'
         },
-        {
-             'project_id':'32439210',
-             'path_with_namespace':'Linaro/lkft/users/yongqin.liu/lkft-android-build-private',
-             'web_url': 'https://gitlab.com/Linaro/lkft/users/yongqin.liu/lkft-android-build-private'
-        },
-        #{
-        #     'project_id':'28784629',
-        #     'path_with_namespace':'Linaro/lkft/users/yongqin.liu/lkft-common',
-        #     'web_url': 'https://gitlab.com/Linaro/lkft/users/yongqin.liu/lkft-common'
-        # },
-        # {
-        #     'project_id':'28894006',
-        #     'path_with_namespace':'Linaro/lkft/users/yongqin.liu/android-common',
-        #     'web_url': 'https://gitlab.com/Linaro/lkft/users/yongqin.liu/android-common'
-        # },
     ]
 
     response_data = {
