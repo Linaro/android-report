@@ -9,7 +9,7 @@ import requests
 import yaml
 
 from abc import abstractmethod
-from io import BytesIO, StringIO
+from io import BytesIO, TextIOWrapper, StringIO
 from ruamel.yaml import YAML
 from urllib.parse import urlsplit
 
