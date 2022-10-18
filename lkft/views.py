@@ -2499,7 +2499,7 @@ def list_all_jobs_resubmitted_manually(request):
     except:
         per_page = 30
 
-    jobs = JobMeta.objects.filter(kind="ManualResubmit")
+    jobs = JobMeta.objects.filter(kind="ManualResubmit").order_by('-qa_job_id')
     qa_jobs = []
     for job in jobs[:per_page]:
         qa_job = qa_report_api.get_job_with_id(job.qa_job_id)
