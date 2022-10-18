@@ -217,7 +217,7 @@ class TestCase(models.Model):
     # when the problem is not improved too much
     # or get worse again when the data gets huge
     # https://docs.djangoproject.com/en/3.2/ref/models/options/#indexes
-    name = models.CharField(max_length=256, db_index=True)
+    name = models.CharField(max_length=320, db_index=True)
     result = models.CharField(max_length=64, db_index=True)
     measurement = models.DecimalField(max_digits=20, decimal_places=2, null=True)
     unit = models.CharField(max_length=128, null=True)
