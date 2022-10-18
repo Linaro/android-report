@@ -1785,7 +1785,7 @@ def list_jobs(request):
         job['qa_job_id'] = job.get('id')
 
         job_status = job.get('job_status')
-        if job_status == 'Running' or job_status == 'Submitted':
+        if job_status == 'Running' or job_status == 'Submitted' or job_status == "Scheduled":
             job['duration'] = datetime.timedelta(milliseconds=0)
         else:
             lava_config = find_lava_config(job.get('external_url'))
