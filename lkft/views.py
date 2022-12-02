@@ -1297,7 +1297,16 @@ def get_jobs_for_build_from_db_or_qareport(build_id=None, force_fetch_from_qarep
     return jobs
 
 
-def get_measurements_of_project(project_id=None, project_name=None, project_group=None, project=None, builds=[], benchmark_jobs=[], testsuites=[], testcases=[], fetch_latest_from_qa_report=False):
+def get_measurements_of_project(project_id=None,
+                                project_name=None,
+                                project_group=None,
+                                project=None,
+                                builds=[],
+                                benchmark_jobs=[],
+                                testsuites=[],
+                                testcases=[],
+                                fetch_latest_from_qa_report=False,
+                                per_page=0):
     # if project_id is not None:
     #     db_report_project = ReportProject.objects.get(project_id=project_id)
     # elif project_group is None:
@@ -1325,8 +1334,12 @@ def get_measurements_of_project(project_id=None, project_name=None, project_grou
         expected_benchmark_jobs = benchmark_jobs
 
     allbenchmarkjobs_result_dict = {}
+    if per_page > 0:
+        num_builds = per_page
+    else:
+        num_builds = BUILD_WITH_BENCHMARK_JOBS_NUMBER
     # for db_report_build in db_report_builds:
-    sorted_builds = sorted(local_builds[:BUILD_WITH_BENCHMARK_JOBS_NUMBER], key=get_build_kernel_version, reverse=True)
+    sorted_builds = sorted(local_builds[:num_builds], key=get_build_kernel_version, reverse=True)
     for build in sorted_builds:
         jobs = get_jobs_for_build_from_db_or_qareport(build_id=build.get("id"), force_fetch_from_qareport=fetch_latest_from_qa_report)
         jobs_to_be_checked = get_classified_jobs(jobs=jobs).get('final_jobs')
@@ -1502,6 +1515,11 @@ def get_build_kernel_version(build):
 
 
 def list_builds(request):
+    try:
+        per_page = int(request.GET.get('per_page', '0'))
+    except:
+        per_page = 0
+
     project_id = request.GET.get('project_id', None)
     fetch_latest_from_qa_report = request.GET.get('fetch_latest', "false").lower() == 'true'
 
@@ -1519,7 +1537,11 @@ def list_builds(request):
     logger.info("Start for list_builds before loop of get_build_info: %s" % project_id)
     builds_result = []
     if project_full_name.find("android-lkft-benchmarks") < 0:
-        sorted_builds = sorted(builds[:BUILD_WITH_JOBS_NUMBER], key=get_build_kernel_version, reverse=True)
+        if per_page > 0:
+            num_builds = per_page
+        else:
+            num_builds = BUILD_WITH_JOBS_NUMBER
+        sorted_builds = sorted(builds[:num_builds], key=get_build_kernel_version, reverse=True)
         for build in sorted_builds:
             builds_result.append(get_build_info(db_reportproject, build, fetch_latest_from_qa_report=fetch_latest_from_qa_report))
 
@@ -1539,7 +1561,10 @@ def list_builds(request):
 
     else:
         logger.info('user: %s is going to check benchmark results for project: %s' % (request.user, project_full_name))
-        benchmark_jobs_data_dict = get_measurements_of_project(project=project, builds=builds, fetch_latest_from_qa_report=fetch_latest_from_qa_report)
+        benchmark_jobs_data_dict = get_measurements_of_project(project=project,
+                                                               builds=builds,
+                                                               fetch_latest_from_qa_report=fetch_latest_from_qa_report,
+                                                               per_page=per_page)
 
         boottime_jobs_data_dict = benchmark_jobs_data_dict.pop('boottime', None)
         if boottime_jobs_data_dict:
