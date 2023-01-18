@@ -672,10 +672,15 @@ class QAReportApi(RESTFullApi):
         #https://stackoverflow.com/questions/53291250/python-3-6-datetime-strptime-returns-error-while-python-3-7-works-well
         if type(datetime_str) is datetime.datetime:
             return datetime_str
-        if type(datetime_str) is str:
-            navie_datetime = datetime.datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+        if type(datetime_str) is not str:
+            datetime_str = str(datetime_str)
+
+        if datetime_str.split(":")[-1].find('.') > -1:
+            str_format = '%Y-%m-%dT%H:%M:%S.%fZ'
         else:
-            navie_datetime = datetime.datetime.strptime(str(datetime_str), '%Y-%m-%dT%H:%M:%S.%fZ')
+            str_format = '%Y-%m-%dT%H:%M:%SZ'
+
+        navie_datetime = datetime.datetime.strptime(datetime_str, str_format)
         return pytz.utc.localize(navie_datetime)
 
 
