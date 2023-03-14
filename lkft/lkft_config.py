@@ -366,6 +366,17 @@ def get_hardware_from_pname(pname=None, env=''):
         return 'Other'
 
 def get_version_from_pname(pname=None):
+    map_squad_project_name_and_bug_version = {
+            'master': 'Master',
+            'mastergsi': 'Master',
+            'android13': 'ANDROID-13',
+            'android13gsi': 'ANDROID-13',
+            'android12': 'ANDROID-12',
+            'android12gsi': 'ANDROID-12',
+            'android11': 'ANDROID-11',
+            'android11gsi': 'ANDROID-11',
+        }
+
     if pname.find('10.0') >= 0:
         return 'ANDROID-10'
     elif pname.find('8.1') >= 0:
@@ -376,6 +387,12 @@ def get_version_from_pname(pname=None):
         return 'Android11-gsi'
     elif pname.find('private-android12-') >= 0:
         return 'EAP-Android12'
+    elif pname.endswith('-lkft'):
+        android_version = pname.split('-')[-3]
+        return map_squad_project_name_and_bug_version.get(android_version, 'Master')
+    elif not pname.endswith('-lkft'):
+        android_version = pname.split('-')[-2]
+        return map_squad_project_name_and_bug_version.get(android_version, 'Master')
     else:
         return 'Master'
 
