@@ -384,7 +384,7 @@ def get_version_from_pname(pname=None):
     elif pname.find('9.0') >= 0:
         return 'PIE-9.0'
     elif pname.find('stable-android11-') >= 0 or pname.find('android11-android11-') >= 0:
-        return 'Android11-gsi'
+        return 'ANDROID-11'
     elif pname.find('private-android12-') >= 0:
         return 'EAP-Android12'
     elif pname.endswith('-lkft'):
