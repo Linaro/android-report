@@ -105,6 +105,7 @@
     <th> Job Id/Job Link</a> </th>
     <th> Job Name/Attachment</a></th>
     <th> Job Status/LAVA Log</th>
+    <th> Device</th>
     <th> Duration </th>
     <th> Resubmit </th>
     <th> FailureMsg </th>
@@ -126,6 +127,7 @@
     {% else %}
     <td nowrap> {{job.name}}</td>
     {% endif %}
+    <td nowrap> <a href="{{job.actual_device_url}}">{{job.actual_device}}</a> </td>
     <td><a target='_blank' href="/lkft/lavalog/{{job.qa_job_id}}/">{{job.job_status}}</a></td>
     {% if job.job_status == 'Running' or job.job_status == 'Submitted'%}
     <td nowrap> -- </td>
@@ -170,6 +172,7 @@
     <th> Environment </th>
     <th> Job Id(Job Link)</a> </th>
     <th> Job Name(Result Attachment Link) </a></th>
+    <th> Device </th>
     <th> Job Status/LAVA Log </th>
     <th> FailureMsg </th>
 </tr>
@@ -183,6 +186,7 @@
     {% else %}
     <td nowrap> {{job.name}}</td>
     {% endif %}
+    <td nowrap> <a href="{{job.actual_device_url}}">{{job.actual_device}}</a> </td>
     <td><a target='_blank' href="/lkft/lavalog/{{job.qa_job_id}}/">{{job.job_status}}</a></td>
     {% if job.failure %}
     {% with job.failure as job_failure %}

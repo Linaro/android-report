@@ -1801,6 +1801,13 @@ def list_jobs(request):
     resubmitted_duplicated_jobs = classified_jobs.get('resubmitted_or_duplicated_jobs')
     for job in resubmitted_duplicated_jobs:
         job['qa_job_id'] = job.get('id')
+        if job.get('external_url') is None:
+            continue
+        lava_config = find_lava_config(job.get('external_url'))
+        job_lava_info = qa_report.LAVAApi(lava_config=lava_config).get_job(job_id=job['job_id'])
+        lava_config_hostname = lava_config.get("hostname")
+        job['actual_device'] = job_lava_info['actual_device']
+        job['actual_device_url'] = f"https://{lava_config_hostname}/scheduler/device/{job_lava_info.actual_device}"
 
     download_attachments_save_result(jobs=jobs, fetch_latest=fetch_latest_from_qa_report)
     failures = {}
@@ -1809,12 +1816,16 @@ def list_jobs(request):
     for job in jobs_to_be_checked:
         job['qa_job_id'] = job.get('id')
 
+        lava_config = find_lava_config(job.get('external_url'))
+        job_lava_info = qa_report.LAVAApi(lava_config=lava_config).get_job(job_id=job['job_id'])
+        lava_config_hostname = lava_config.get("hostname")
+        job['actual_device'] = job_lava_info['actual_device']
+        job['actual_device_url'] = f"https://{lava_config_hostname}/scheduler/device/{job_lava_info.actual_device}"
+
         job_status = job.get('job_status')
         if job_status == 'Running' or job_status == 'Submitted' or job_status == "Scheduled":
             job['duration'] = datetime.timedelta(milliseconds=0)
         else:
-            lava_config = find_lava_config(job.get('external_url'))
-            job_lava_info = qa_report.LAVAApi(lava_config=lava_config).get_job(job_id=job['job_id'])
             job_start_time = datetime.datetime.strptime(str(job_lava_info['start_time']), '%Y-%m-%dT%H:%M:%S.%fZ')
             job_end_time =  datetime.datetime.strptime(str(job_lava_info['end_time']), '%Y-%m-%dT%H:%M:%S.%fZ')
             job_duration = job_end_time - job_start_time
