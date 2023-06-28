@@ -121,19 +121,31 @@
 <tr>
     <td> {{ forloop.counter }}</td>
     <td> {{ job.environment }}</td>
+    {% if job.job_id %}
     <td> <a href="{{job.external_url}}">{{job.job_id}}</a> </td>
+    {% else %}
+    <td align="center" nowrap> - </td>
+    {% endif %}
     {% if job.attachment_url %}
     <td nowrap> <a target='_blank' href="{{job.attachment_url}}">{{job.name}} </a></td>
     {% else %}
     <td nowrap> {{job.name}}</td>
     {% endif %}
-    <td nowrap> <a href="{{job.actual_device_url}}">{{job.actual_device}}</a> </td>
+    {% if job.job_status == 'NotSubmitted' %}
+    <td>{{job.job_status}}</td>
+    {% else %}
     <td><a target='_blank' href="/lkft/lavalog/{{job.qa_job_id}}/">{{job.job_status}}</a></td>
+    {% endif %}
+    {% if job.actual_device %}
+    <td nowrap> <a href="{{job.actual_device_url}}">{{job.actual_device}}</a> </td>
+    {% else %}
+    <td align="center" nowrap> - </td>
+    {% endif %}
     {% if job.job_status == 'Running' or job.job_status == 'Submitted'%}
-    <td nowrap> -- </td>
+    <td nowrap> - </td>
     <td><a target='_blank' href="/lkft/cancel-job/{{job.qa_job_id}}/">Cancel</a></td>
     {% else %}
-    <td nowrap> {{job.duration}}</td>
+    <td nowrap> {{job.duration}} </td>
     <td>
         <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qa_job_id}}?no_update=true">Resubmit</a>&nbsp;/&nbsp;<a target='_blank' href="/lkft/resubmit-job-manual/{{job.qa_job_id}}?no_update=false">Manual</a>
     </td>
@@ -172,8 +184,8 @@
     <th> Environment </th>
     <th> Job Id(Job Link)</a> </th>
     <th> Job Name(Result Attachment Link) </a></th>
-    <th> Device </th>
     <th> Job Status/LAVA Log </th>
+    <th> Device </th>
     <th> FailureMsg </th>
 </tr>
 {% for job in failed_jobs %}
@@ -186,8 +198,8 @@
     {% else %}
     <td nowrap> {{job.name}}</td>
     {% endif %}
-    <td nowrap> <a href="{{job.actual_device_url}}">{{job.actual_device}}</a> </td>
     <td><a target='_blank' href="/lkft/lavalog/{{job.qa_job_id}}/">{{job.job_status}}</a></td>
+    <td nowrap> <a href="{{job.actual_device_url}}">{{job.actual_device}}</a> </td>
     {% if job.failure %}
     {% with job.failure as job_failure %}
     <td>{{job_failure.error_msg}} </td>

@@ -1817,19 +1817,22 @@ def list_jobs(request):
         job['qa_job_id'] = job.get('id')
 
         lava_config = find_lava_config(job.get('external_url'))
-        job_lava_info = qa_report.LAVAApi(lava_config=lava_config).get_job(job_id=job['job_id'])
-        lava_config_hostname = lava_config.get("hostname")
-        job['actual_device'] = job_lava_info['actual_device']
-        job['actual_device_url'] = f"https://{lava_config_hostname}/scheduler/device/{job_lava_info.actual_device}"
+        if lava_config is not None:
+            job_lava_info = qa_report.LAVAApi(lava_config=lava_config).get_job(job_id=job['job_id'])
+            lava_config_hostname = lava_config.get("hostname")
+            job['actual_device'] = job_lava_info['actual_device']
+            job['actual_device_url'] = f"https://{lava_config_hostname}/scheduler/device/{job_lava_info.actual_device}"
 
         job_status = job.get('job_status')
         if job_status == 'Running' or job_status == 'Submitted' or job_status == "Scheduled":
             job['duration'] = datetime.timedelta(milliseconds=0)
-        else:
+        elif lava_config is not None:
             job_start_time = datetime.datetime.strptime(str(job_lava_info['start_time']), '%Y-%m-%dT%H:%M:%S.%fZ')
             job_end_time =  datetime.datetime.strptime(str(job_lava_info['end_time']), '%Y-%m-%dT%H:%M:%S.%fZ')
             job_duration = job_end_time - job_start_time
             job['duration'] = job_duration
+        else:
+            job['duration'] = datetime.timedelta(milliseconds=0)
 
         short_desc = "%s: %s job failed to get test result with %s" % (project_name, job.get('name'), build.get('version'))
         new_bug_url = '%s&rep_platform=%s&version=%s&short_desc=%s' % ( bugzilla_instance.get_new_bug_url_prefix(),

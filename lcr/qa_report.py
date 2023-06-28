@@ -611,9 +611,13 @@ class QAReportApi(RESTFullApi):
     '''
     def set_job_status(self, job):
         if job.get('job_status') is None and \
-            job.get('submitted') and \
-            not job.get('fetched'):
+                job.get('submitted') and \
+                not job.get('fetched'):
             job['job_status'] = 'Submitted'
+        elif job.get('job_status') is None and \
+                not job.get('submitted'):
+            # like when lava instance id down
+            job['job_status'] = 'NotSubmitted'
 
     def reset_qajob_failure_msg(self, job):
         if type(job.get('failure')) == str:
