@@ -369,6 +369,8 @@ def get_version_from_pname(pname=None):
     map_squad_project_name_and_bug_version = {
             'master': 'Master',
             'mastergsi': 'Master',
+            'android14': 'ANDROID-14',
+            'android14gs': 'ANDROID-14',
             'android13': 'ANDROID-13',
             'android13gsi': 'ANDROID-13',
             'android12': 'ANDROID-12',
@@ -387,6 +389,8 @@ def get_version_from_pname(pname=None):
         return 'ANDROID-11'
     elif pname.find('private-android12-') >= 0:
         return 'EAP-Android12'
+    elif pname.find('private-android14-') >= 0:
+        return 'EAP-Android14'
     elif pname.endswith('-lkft'):
         android_version = pname.split('-')[-3]
         return map_squad_project_name_and_bug_version.get(android_version, 'Master')
