@@ -1724,6 +1724,8 @@ def get_cts_vts_version_from(cts_vts_url, default_cts_vts_version=""):
             vers.append(get_cts_vts_version_from(url, default_cts_vts_version=default_cts_vts_version[index]))
         return vers
 
+    if type(default_cts_vts_version) is list:
+        default_cts_vts_version = default_cts_vts_version[0]
     # for cases that type(cts_vts_url) is str:
     if cts_vts_url.find('/aosp-master-throttled/') >= 0 or \
             cts_vts_url.find('/aosp-master/') >= 0:
@@ -1734,9 +1736,10 @@ def get_cts_vts_version_from(cts_vts_url, default_cts_vts_version=""):
         # http://snapshots.linaro.org/android/lkft/protected/aosp/android-cts/84/android-cts.zip
         if len(default_cts_vts_version.split('#')) == 2 and len(default_cts_vts_version.split('/')) == 3:
             # for case like "EAP-Android12#S/SP1A.210605.001/88"
+            # for case like "EAP-Android#14/UP1A.230623.007/272
             return default_cts_vts_version
         cts_vts_url = re.sub('\/+', '/', cts_vts_url)
-        return "EAP-Android12#%s" % cts_vts_url.split('/')[-2]
+        return "EAP-Android14#%s" % cts_vts_url.split('/')[-2]
     else:
         cts_vts_url = re.sub('\/+', '/', cts_vts_url)
 
