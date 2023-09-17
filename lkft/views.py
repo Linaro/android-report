@@ -206,7 +206,6 @@ def save_testcases_with_bulk_call(testcase_objs=[]):
         #         break
         #     return_objs = TestCase.objects.bulk_create(batch, batch_size)
         #     total_size = total_size + len(return_objs)
-        #     logger.info("LIUYQ build_created %d/%d" % (total_size, len(testcase_objs)))
         TestCase.objects.bulk_create(testcase_objs, batch_size)
     else:
         # otherwise following error will be reported:
@@ -1896,7 +1895,7 @@ def list_jobs(request):
             numbers = extract(result_file_path, failed_testcases_all=failures, metadata=metadata)
             job['numbers'] = numbers
 
-    bugs = get_lkft_bugs(summary_keyword=project_name, platform=get_hardware_from_pname(project_name))
+    bugs = get_lkft_bugs(summary_keyword=project_name)
     bugs_reproduced = []
     failures_list = []
     for module_name in sorted(failures.keys()):
