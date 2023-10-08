@@ -2008,6 +2008,27 @@ def get_job_lavalog(request, qa_job_id):
 
         return response
 
+@login_required
+@permission_required('lkft.admin_projects')
+def get_job_lavalog_lavaurl(request):
+    lava_domain = request.GET.get("domain")
+    lava_jobid = request.GET.get("jobid")
+    lavajob_externalurl = f"https://{lava_domain}/scheduler/job/{lava_jobid}"
+    lava_config = find_lava_config(lavajob_externalurl)
+    if not lava_config:
+        err_msg = 'lava server is not found for job: %s' % job.get('url')
+        logger.error(err_msg)
+        return HttpResponse("ERROR:%s" % err_msg, status=200)
+    else:
+        lava_log = qa_report.LAVAApi(lava_config=lava_config).get_lava_log(lava_job_id=lava_jobid)
+        response = HttpResponse(content_type='application/text')
+        response['Content-Disposition'] = f'attachment; filename="lava-log-{lava_jobid}.log"'
+        response.write(f"LAVA Job URL: {lavajob_externalurl}\n")
+        response.write("\n")
+        response.write(lava_log)
+
+        return response
+
 def get_bug_hardware_from_environment(environment):
     if environment.find('hi6220-hikey')>=0:
         return 'HiKey'

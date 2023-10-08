@@ -20,6 +20,7 @@ urlpatterns = [
     url(r'^builds/.*$', views.list_builds, name='list_builds'),
     url(r'^jobs/.*$', views.list_jobs, name='list_jobs'),
     url(r'^lavalog/(%s)/$' % (numerical_pat), views.get_job_lavalog, name='get_job_lavalog'),
+    url(r'^lavalog-lavaurl/.*$', views.get_job_lavalog_lavaurl, name='get_job_lavalog_lavaurl'),
     url(r'^alljobs/.*$', views.list_all_jobs, name='list_all_jobs'),
     url(r'^allmanualjobs/.*$', views.list_all_jobs_resubmitted_manually, name='list_all_manual_jobs'),
     url(r'^file-bug/.*$', views.file_bug, name='file_bug'),
