@@ -217,6 +217,10 @@ class TestCase(models.Model):
     # when the problem is not improved too much
     # or get worse again when the data gets huge
     # https://docs.djangoproject.com/en/3.2/ref/models/options/#indexes
+    # for "django.db.utils.DataError: nextval: reached maximum value of sequence "lkft_testcase_id_seq" (2147483647)"
+    # refer to https://qa.1r1g.com/sf/ask/4300189841/
+    # https://stackoverflow.com/questions/61431283/django-reached-maximum-value-of-sequence
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=320, db_index=True)
     result = models.CharField(max_length=64, db_index=True)
     measurement = models.DecimalField(max_digits=20, decimal_places=2, null=True)
