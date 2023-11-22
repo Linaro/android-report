@@ -3145,6 +3145,9 @@ def get_androidreportconfig_module():
 
 
 def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_latest_from_qa_report=False):
+    if not fetch_latest_from_qa_report:
+        return
+
     if branch is None or describe is None:
         return
 
@@ -3542,6 +3545,7 @@ def gitlab_projects(request):
 
 def gitlab_project_pipelines(request, project_id):
     logger.debug("start prepare for gitlab_project_pipelines")
+    fetch_latest = request.GET.get('fetch_latest', "false").lower() == 'true'
     branch = request.GET.get('branch', None)
     try:
         per_page = int(request.GET.get('per_page', '50'))
@@ -3584,7 +3588,7 @@ def gitlab_project_pipelines(request, project_id):
 
             pipeline['kernel_describe'] = kernel_describe
 
-            fetch_data_for_describe_kernelchange(branch=pipeline['branch'], describe=kernel_describe, fetch_latest_from_qa_report=True)
+            fetch_data_for_describe_kernelchange(branch=pipeline['branch'], describe=kernel_describe, fetch_latest_from_qa_report=fetch_latest)
             try:
                 db_kernel_change = KernelChange.objects.get(branch=pipeline['branch'], describe=kernel_describe)
                 pipeline['numbers'] = qa_report.TestNumbers().addWithDatabaseRecord(db_kernel_change)
