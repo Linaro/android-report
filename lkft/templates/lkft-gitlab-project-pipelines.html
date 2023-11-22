@@ -30,6 +30,13 @@
 			<th>Updated At</th>
 			<th>Kernel Branch</th>
 			<th>Kernel Describe<br/>(Need login gitlab to download artifacts)</th>
+			<th>Passed</th>
+			<th>Failed</th>
+			<th>AssumptionF</th>
+			<th>Ignored</th>
+			<th>Total</th>
+			<th>Modules Done/Total</th>
+			<th>Jobs Completed/Total</th>
 	</tr>
 	{% for pipeline in pipelines %}
 	<tr>
@@ -46,12 +53,49 @@
 
 	    <td>{{ pipeline.created_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.created_at_datetime|timesince}} ago</td>
 	    <td>{{ pipeline.updated_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.updated_at_datetime|timesince}} ago</td>
-	    <td>{{pipeline.branch}}</td>
+	    <td><a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/">{{pipeline.branch}}</a></td>
+        <td>
 	    {% if pipeline.artifacts_url %}
-	    <td><a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.kernel_describe}}</a></td>
+	    <a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.kernel_describe}}</a>
 	    {% else %}
-	    <td>{{pipeline.kernel_describe}}</td>
+	    {{pipeline.kernel_describe}}
 	    {% endif %}
+        </td>
+        <td align="right">
+            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+                {{pipeline.numbers.number_passed}}
+            </a>
+        </td>
+        <td align="right">
+            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+                {{pipeline.numbers.number_failed}}
+            </a>
+        </td>
+        <td align="right">
+            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+                {{pipeline.numbers.number_assumption_failure}}
+            </a>
+        </td>
+        <td align="right">
+            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+                {{pipeline.numbers.number_ignored}}
+            </a>
+        </td>
+        <td align="right">
+            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+                {{pipeline.numbers.number_total}}
+            </a>
+        </td>
+        <td align="right">
+            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+                {{pipeline.numbers.modules_done}}/{{pipeline.numbers.modules_total}}
+            </a>
+        </td>
+        <td align="right">
+            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+                {{pipeline.numbers.jobs_finished}}/{{pipeline.numbers.jobs_total}}
+            </a>
+        </td>
 	</tr>
 	{% endfor %}
 	</table>

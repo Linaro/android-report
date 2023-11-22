@@ -23,6 +23,7 @@ table.testdetails {
   margin-right: auto;
   vertical-align: top;
   /* width: 95%; */
+  width: fit-content;
   font-family: arial,sans-serif;
   font-size: 13px;
 }

@@ -1,0 +1,45 @@
+{% extends '_layouts/base.html' %}
+
+{% load static%}
+
+{% block title %}LKFT Android Projects{% endblock %}
+
+{% block headline %}<h1><a href="https://qa-reports.linaro.org/">LKFT Android Projects</a></h1>{% endblock %}
+
+{% block css %}
+<script src="{% static "report/jquery.min.js" %}"></script>
+<script src="{% static "report/bootstrap.min.js" %}"></script>
+{% endblock %}
+{% block content %}
+<div class="row">
+{% if matrix_data %}
+<table class="table">
+<tbody>
+
+<tr>
+    <th>Kernel</td>
+    {% for android_version in android_versions %}
+    <th> {{android_version}} </th>
+    {% endfor %}
+</tr>
+
+{% for branch, os_projects in matrix_data.items %}
+<tr>
+    <td nowrap>
+    <a target='_blank' href="/lkft/kernel-changes/{{branch}}">{{branch}}</a>
+    </td>
+    {% for os, projects in os_projects.items %}
+    <td nowrap>
+    {% for project in projects %}
+    {% if not forloop.first %}<br/>{% endif %}
+    <a target='_blank' href="/lkft/builds?project_slug={{project.slug}}&&project_group={{project.group}}">{{project.slug}}{% if project.environment %}({{project.environment}}){% endif %}</a>
+    {% endfor %}
+    </td>
+    {% endfor %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+</div>
+{% endblock %}

@@ -27,6 +27,7 @@ urlpatterns = [
     url(r'^resubmit-job/.*$', views.resubmit_job, name='resubmit_job'),
     url(r'^resubmit-job-manual/(%s)' % (numerical_pat), views.resubmit_job_manual, name='resubmit_job_manual'),
     url(r'^cancel-job/(%s)/$' % (numerical_pat), views.cancel_job, name='cancel_job'),
+    url(r'^fetch-job/(%s)/$' % (numerical_pat), views.fetch_job, name='fetch_job'),
     url(r'^cancel-build/(%s)/$' % (numerical_pat), views.cancel_build, name='cancel_build'),
     url(r'^cancel-kernelchange/(%s)/(%s)$' % (basic_pat, basic_pat), views.cancel_kernelchange, name='cancel_kernelchange'),
     # newchanges/$branch/$describe/$build_name/$build_number
@@ -36,4 +37,5 @@ urlpatterns = [
 
     url(r'^gitlab/$', views.gitlab_projects, name='gitlab_projects'),
     url(r'^gitlab/(%s)/$' % gitlab_project_id_pat, views.gitlab_project_pipelines, name='gitlab_progect_pipelines'),
+    url(r'^matrix/$', views.matrix, name='matrix'),
 ]

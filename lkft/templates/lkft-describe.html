@@ -1,10 +1,29 @@
 {% extends '_layouts/base.html' %}
 
-{% block title %} {{kernel_change.describe}} {% endblock %}
+{% load static %}
+{% load escapesharp %}
+{% load startswith %}
 
-{% block headline %}<h1>{{kernel_change.describe}}</h1>{% endblock %}
+{% block title %} {{kernel_change.branch}} {{kernel_change.describe}} {% endblock %}
+
+{% block headline %}<h1>{{kernel_change.branch}} > {{kernel_change.describe}}</h1>{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static "report/css/compatibility_result.css" %}">
+{% endblock %}
 
 {% block content %}
+<div class="row">
+<table class="table"><tbody><tr>
+        <td style="text-align: right;">
+            {% if fetch_latest %}
+                <a href="/lkft/kernel-changes/{{kernel_change.branch}}/{{kernel_change.describe}}">Only show data cached</a>
+            {% else %}
+                <a href="/lkft/kernel-changes/{{kernel_change.branch}}/{{kernel_change.describe}}?fetch_latest=true">Refresh with the latest data</a>
+            {% endif %}
+        </td>
+    </tr></tbody></table>
+</div>
 
 <div>
 <h1>Summary</h1>
@@ -31,7 +50,7 @@
     </tr>
     <tr>
         <th>Trigger</th>
-        <td><a href="https://ci.linaro.org/job/{{kernel_change.trigger_name}}/{{kernel_change.trigger_number}}">{{kernel_change.trigger_name}}#{{kernel_change.trigger_number}}</a></td>
+        <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{kernel_change.trigger_name}}/-/pipelines/{{kernel_change.trigger_number}}">{{kernel_change.trigger_name}}#{{kernel_change.trigger_number}}</a></td>
     </tr>
     <tr>
         <th>Started At</th>
@@ -96,8 +115,8 @@
         <th>Duration</th>
 </tr>
 <tr>
-    <td><a href="https://ci.linaro.org/job/{{trigger_build.name}}/">{{trigger_build.name}}</a></td>
-    <td align='right'><a href="https://ci.linaro.org/job/{{trigger_build.name}}/{{trigger_build.number}}/">{{trigger_build.number}}</a></td>
+    <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/~/pipelines">{{trigger_build.name}}</a></td>
+    <td align='right'><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/~/pipelines/{{trigger_build.number}}/">{{trigger_build.number}}</a></td>
     <td>{{trigger_build.result}}</td>
     <td><p>Started at {{ trigger_build.timestamp|date:'M. d, Y, H:i'}}, <br/>{{ trigger_build.timestamp|timesince}} ago</p></td>
     <td align='right'>{{trigger_build.duration}}</td>
@@ -120,8 +139,8 @@
 {% for cibuild in ci_builds %}
 <tr>
     <td>{{ forloop.counter }}</td>
-    <td><a href="https://ci.linaro.org/job/{{cibuild.name}}/">{{cibuild.name}}</a></td>
-    <td align='right'><a href="https://ci.linaro.org/job/{{cibuild.name}}/{{cibuild.number}}/">{{cibuild.number}}</a></td>
+    <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{cibuild.name}}/-/pipelines/">{{cibuild.name}}</a></td>
+    <td align='right'><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{cibuild.name}}/-/pipelines/{{cibuild.number}}/">{{cibuild.number}}</a></td>
     <td>{{cibuild.result}}</td>
     <td align='right'>{{cibuild.queued_duration}}</td>
     <td><p>Started at {{ cibuild.timestamp|date:'M. d, Y, H:i'}}, <br/>{{ cibuild.timestamp|timesince}} ago</p></td>
@@ -208,16 +227,26 @@
     <td> {{job.qaproject_group }}</td>
     <td> {{job.qaproject_name }}</td>
     <td> <a href="{{job.lavajob_url}}">{{job.lavajob_id}}</a> </td>
-    {% if job.lavajob_url %}
-    <td nowrap> <a target='_blank' href="{{job.lavajob_url}}">{{job.lavajob_name}} </a></td>
+    {% if job.lavajob_attachment_url %}
+    <td nowrap> <a target='_blank' href="{{job.lavajob_attachment_url}}">{{job.lavajob_name}} </a></td>
     {% else %}
     <td nowrap> {{job.lavajob_name}}</td>
     {% endif %}
-    <td>{{job.lavajob_status}} </td>
+    {% if job.lavajob_status == 'NotSubmitted' %}
+    <td>{{job.lavajob_status}}</td>
+    {% else %}
+    <td><a target='_blank' href="/lkft/lavalog/{{job.qajob_id}}/">{{job.lavajob_status}}</a></td>
+    {% endif %}
     {% if job.lavajob_status == 'Running' or job.lavajob_status == 'Submitted'%}
     <td>&nbsp;</td>
     {% else %}
-    <td><a target='_blank' href="/lkft/resubmit-job/?qa_job_id={{job.qajob_id}}">Resubmit</a> </td>
+    <td>
+        <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qajob_id}}?&no_update=true">Resubmit</a>
+        &nbsp;/&nbsp;
+        <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qajob_id}}?no_update=false">Manual</a>
+        &nbsp;/&nbsp;
+        <a target='_blank' href="/lkft/fetch-job/{{job.qajob_id}}">Fetch</a>
+    </td>
     {% endif %}
     {% if job.failure_msg %}
     <td>{{job.failure_msg}} </td>
@@ -229,7 +258,13 @@
     <td align="right">{{job.number_assumption_failure}}</td>
     <td align="right">{{job.number_ignored}}</td>
     <td align="right">{{job.number_total}}</td>
-    <td align="right">{{job.modules_done}}/{{job.modules_total}}</td>
+    <td align="right">
+    {% if job.modules_done != job.modules_total or job.is_cts_vts_job and job.modules_total == 0 %}
+    <p style="background-color: red">{{job.modules_done}}/{{job.modules_total}}</p>
+    {% else %}
+    {{job.modules_done}}/{{job.modules_total}}
+    {% endif %}
+    </td>
 </tr>
 {% endfor %}
 </table>
@@ -272,5 +307,71 @@
 </table>
 </div>
 {% endif %}
+{% endif %}
+
+{% if failures %}
+<script type="text/javascript">
+    function toggle() {
+      for (var i = 0; i < arguments.length; i++) {
+        var e = document.getElementById(arguments[i]);
+        if (e) {
+          e.style.display = e.style.display == 'none' ? 'block': 'none';
+        }
+      }
+      return false;
+    }
+    function moduleToggle(link, id) {
+      toggle('module-details-' + id);
+      var s = link.getElementsByTagName('span')[0];
+      var uarr = String.fromCharCode(0x25b6);
+      var darr = String.fromCharCode(0x25bc);
+      s.textContent = s.textContent == uarr ? darr : uarr;
+      return false;
+    }
+</script>
+<div align="left">
+<h2>Details of Failures</h2>
+{% for module_name, module_failures in failures.items %}
+{% if module_failures|length > 0 %}
+<div>
+    <a href="#" onclick="return moduleToggle(this, '{{module_name}}')" name="{{module_name}}"><span>▶</span> {{module_name}} has {{ module_failures|length }} failures</a>
+</div>
+<table id="module-details-{{module_name}}" class="testdetails" style="display: none;">
+<tbody>
+<tr>
+    <th>Index</th>
+    <th>Test</th>
+    <th>Result</th>
+    <th>Kernels</th>
+    <th>Projects</th>
+</tr>
+{% for testcase_name, failure in module_failures.items %}
+<tr>
+    <td> {{ forloop.counter }}</td>
+    <td class="testname">{{failure.test_name}}</td>
+    <td class="testname">{{failure.result}}</td>
+    <td class="testname" nowrap>
+        {% with failure.kernel_versions as kernel_versions %}
+        {% for kernel_version in kernel_versions %}
+        {% if not forloop.first %}<br/>{% endif %}
+        {{ kernel_version }}
+        {% endfor %}
+        {% endwith %}
+    </td>
+    <td class="testname" nowrap>
+        {% with failure.project_names as project_names %}
+        {% for project_name in project_names %}
+        {% if not forloop.first %}<br/>{% endif %}
+        {{ project_name }}
+        {% endfor %}
+        {% endwith %}
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
+{% endfor %}
+</div>
 {% endif %}
 {% endblock %}

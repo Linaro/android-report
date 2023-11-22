@@ -376,6 +376,7 @@ def extract(result_zip_path, failed_testcases_all={}, metadata={}):
     kernel_version = metadata.get('kernel_version')
     platform = metadata.get('platform')
     qa_job_id = metadata.get('qa_job_id')
+    project_name = metadata.get('project_name')
 
     test_numbers = get_testcases_number_for_job_with_qa_job_id(qa_job_id)
     test_cases = TestCase.objects.filter(lava_nick=metadata.get('lava_nick'), job_id=metadata.get('job_id')).filter(Q(result='fail')|Q(result='ASSUMPTION_FAILURE'))
@@ -406,6 +407,8 @@ def extract(result_zip_path, failed_testcases_all={}, metadata={}):
 
             if not platform in failed_testcase.get('platforms'):
                 failed_testcase.get('platforms').append(platform)
+            if not project_name in failed_testcase.get('project_names'):
+                failed_testcase.get('project_names').append(project_name)
         else:
             (test_class, test_method) = test_name.split('#')[0:2]
             failed_tests_module[test_name]= {
@@ -419,6 +422,7 @@ def extract(result_zip_path, failed_testcases_all={}, metadata={}):
                                                 'qa_job_ids': [ qa_job_id ],
                                                 'kernel_versions': [ kernel_version ],
                                                 'platforms': [ platform ],
+                                                'project_names': [ project_name ]
                                             }
 
     return test_numbers
@@ -605,6 +609,7 @@ def get_classified_jobs(jobs=[]):
 
         if f"{job_name_short}|{environment}" in job_name_environments:
             job['duplicated'] = True
+            job['resubmitted'] = True
             resubmitted_or_duplicated_jobs.append(job)
             continue
 
@@ -906,7 +911,7 @@ def thread_pool(func=None, elements=[], subgroup_count=10):
     logger.info("Finished getting information for all elements: number_of_elements=%d, number_of_subgroup=%d, finished_count=%d" % (number_of_elements, number_of_subgroup, finished_count))
 
 
-def is_project_accessible(project_full_name=None, user=AnonymousUser):
+def is_project_accessible(project_full_name=None, user=AnonymousUser, is_public=False):
     if project_full_name is None:
         return False
 
@@ -922,8 +927,11 @@ def is_project_accessible(project_full_name=None, user=AnonymousUser):
                 return True
         # the user does not have any permission required to view the project
         return False
+    elif not is_public:
+        # for not public prjects, permission is necessary
+        return False
     else:
-        # the project is not a restricted project, which means it is a public project
+        # public project and no permission defined
         # then return True
         return True
 
@@ -939,7 +947,7 @@ def get_projects_info(groups=[], request=None):
             continue
 
         if request is not None and \
-            not is_project_accessible(project_full_name=project.get('full_name'), user=request.user):
+            not is_project_accessible(project_full_name=project.get('full_name'), user=request.user, is_public=project.get('is_public')):
             # the current user has no permission to access the project
             continue
 
@@ -1090,9 +1098,9 @@ def cache_qaproject_to_database(target_project):
     return db_report_project
 
 
-def cache_qabuild_to_database(qareport_build):
+def cache_qabuild_to_database(qareport_build, force=False):
     db_report_build, created = ReportBuild.objects.get_or_create(qa_build_id=qareport_build.get('id'))
-    if created or db_report_build.metadata_url is None or not db_report_build.finished:
+    if force or created or db_report_build.metadata_url is None or not db_report_build.finished:
         db_report_build.version = qareport_build.get('version')
         db_report_build.metadata_url = qareport_build.get('metadata')
         db_report_build.started_at = qareport_build.get('created_at')
@@ -1107,6 +1115,12 @@ def cache_qabuild_to_database(qareport_build):
 
         if qareport_build.get('build_status'):
             db_report_build.status = qareport_build.get('build_status')
+
+        if qareport_build.get("numbers"):
+            qa_report.TestNumbers.setHashValueForDatabaseRecord(db_report_build, qareport_build.get("numbers"))
+
+        if qareport_build.get("kernel_change"):
+            db_report_build.kernel_change = qareport_build.get("kernel_change")
 
         db_report_build.save()
     return db_report_build
@@ -1289,6 +1303,7 @@ def get_jobs_for_build_from_db_or_qareport(build_id=None, force_fetch_from_qarep
 
     if force_fetch_from_qareport or needs_fetch_jobs:
         jobs = qa_report_api.get_jobs_for_build(build_id)
+        get_classified_jobs(jobs)
         get_attachment_urls(jobs)
         for job in jobs:
             cache_qajob_to_database(job)
@@ -1520,13 +1535,20 @@ def list_builds(request):
         per_page = 0
 
     project_id = request.GET.get('project_id', None)
+    project_slug = request.GET.get('project_slug', None)
+    project_group = request.GET.get('project_group', None)
     fetch_latest_from_qa_report = request.GET.get('fetch_latest', "false").lower() == 'true'
+
+    if project_id is None:
+        project_full_name = qa_report_api.get_project_full_name_with_group_and_slug(project_group, project_slug)
+        qa_project = qa_report_api.get_project_with_name(project_full_name)
+        project_id = qa_project.get('id')
 
     logger.info("Start for list_builds: %s" % project_id)
 
     project, db_reportproject = get_project_from_database_or_qareport(project_id, force_fetch_from_qareport=fetch_latest_from_qa_report)
     project_full_name = project.get('full_name')
-    if not is_project_accessible(project_full_name=project_full_name, user=request.user):
+    if not is_project_accessible(project_full_name=project_full_name, user=request.user, is_public=project.get('is_public')):
         # the current user has no permission to access the project
         return render(request, '401.html', status=401)
 
@@ -1676,7 +1698,7 @@ def list_all_jobs(request):
                 and not project_full_name.startswith("android-lkft-rc/"):
             continue
 
-        if not is_project_accessible(project_full_name=project.get('full_name'), user=request.user):
+        if not is_project_accessible(project_full_name=project.get('full_name'), user=request.user, is_public=project.get('is_public')):
             continue
 
         projects.append(project)
@@ -1791,7 +1813,7 @@ def list_jobs(request):
     project_id = build.get('project').strip('/').split('/')[-1]
     project, db_reportproject = get_project_from_database_or_qareport(project_id, force_fetch_from_qareport=fetch_latest_from_qa_report)
     project_full_name = project.get('full_name')
-    if not is_project_accessible(project_full_name=project_full_name, user=request.user):
+    if not is_project_accessible(project_full_name=project_full_name, user=request.user, is_public=project.get('is_public')):
         # the current user has no permission to access the project
         return render(request, '401.html', status=401)
 
@@ -1891,6 +1913,7 @@ def list_jobs(request):
                 'lava_nick': job.get('lava_config').get('nick'),
                 'kernel_version': kernel_version,
                 'platform': platform,
+                'project_name': project_name,
                 }
             numbers = extract(result_file_path, failed_testcases_all=failures, metadata=metadata)
             job['numbers'] = numbers
@@ -2592,6 +2615,20 @@ def cancel_job(request, qa_job_id):
             logger.info("Tried to canncel job with res.status_code=%s: %s" % (res.status_code, qa_job.get('external_url')))
     return redirect(qa_job.get('external_url'))
 
+@login_required
+@permission_required('lkft.admin_projects')
+def fetch_job(request, qa_job_id):
+    qa_job = qa_report_api.get_job_with_id(qa_job_id)
+    qa_build = qa_report_api.get_build_with_url(qa_job.get("target_build"))
+    qa_project = qa_report_api.get_project_with_url(qa_job.get("target"))
+    res = qa_report_api.fetchjob(qa_job_id)
+    logger.info("Tried to fetch job with res.status_code=%s: %s" % (res.status_code, qa_job_id))
+    logger.info("%s Response: %s" % (res.reason, res.text))
+    # https://qa-reports.linaro.org/android-lkft/6.1-gki-android14-aosp-master-rb5/build/6.1.43-a59b32866cd4/testjobs/
+    build_jobs_url = f"https://%s/%s/build/%s/testjobs/" % (qa_report_api.domain, qa_project.get("full_name"), qa_build.get("version"))
+
+    return redirect(build_jobs_url)
+
 
 def cancel_build_jobs(qa_build_id):
     qa_jobs = get_jobs_for_build_from_db_or_qareport(build_id=qa_build_id, force_fetch_from_qareport=True)
@@ -2787,11 +2824,11 @@ def get_kernel_changes_info(db_kernelchanges=[]):
     if number_kernelchanges < 1:
         return []
 
-    queued_ci_items = jenkins_api.get_queued_items()
+    # queued_ci_items = jenkins_api.get_queued_items()
     lkft_projects = qa_report_api.get_lkft_qa_report_projects(include_archived=True)
     kernelchanges = []
     # add the same project might have several kernel changes not finished yet
-    project_builds = {} # cache builds for the project
+    # project_builds = {} # cache builds for the project
 
     index = 0
     logger.info("length of kernel changes: %s" % number_kernelchanges)
@@ -2800,208 +2837,208 @@ def get_kernel_changes_info(db_kernelchanges=[]):
         logger.info("%d/%d: Try to get info for kernel change: %s %s %s %s" % (index, number_kernelchanges, db_kernelchange.branch, db_kernelchange.describe, db_kernelchange.result, timesince(db_kernelchange.timestamp)))
         test_numbers = qa_report.TestNumbers()
         kernelchange = {}
-        if db_kernelchange.reported and db_kernelchange.result == 'ALL_COMPLETED':
-            kernelchange = { 'kernel_change': db_kernelchange }
-            kernelchanges.append(kernelchange)
-            continue
-
-        trigger_build = get_ci_build_info(db_kernelchange.trigger_name, db_kernelchange.trigger_number)
-        trigger_build['kernel_change'] = db_kernelchange
-        if trigger_build.get('start_timestamp') is None:
-            trigger_build['start_timestamp'] = db_kernelchange.timestamp
-            trigger_build['finished_timestamp'] = trigger_build['start_timestamp'] + trigger_build['duration']
-            kernel_change_status = "TRIGGER_BUILD_DELETED"
-        else:
-            kernel_change_status = "TRIGGER_BUILD_COMPLETED"
-        kernel_change_finished_timestamp = trigger_build['finished_timestamp']
-
-        dbci_builds = CiBuild.objects_kernel_change.get_builds_per_kernel_change(kernel_change=db_kernelchange).order_by('name', '-number')
-        expect_build_names = find_expect_cibuilds(trigger_name=db_kernelchange.trigger_name, branch_name=db_kernelchange.branch)
-
-        # used to cached all the ci builds data
-        jenkins_ci_builds = []
-        # used to record the lkft build config to find the qa-report project
-        lkft_build_configs = {}
-        ci_build_names = []
-        has_build_inprogress = False
-        # success, inprogress, inqueue jobs are not failed jobs
-        all_builds_failed = True
-        all_builds_has_failed = False
-        for dbci_build in dbci_builds:
-            #if dbci_build.name == db_kernelchange.trigger_name:
-            #    # ignore the trigger builds
-            #    continue
-            #else:
-            ci_build_names.append(dbci_build.name)
-
-            build = get_ci_build_info(dbci_build.name, dbci_build.number)
-            build['dbci_build'] = dbci_build
-            jenkins_ci_builds.append(build)
-            if build.get('status') == 'INPROGRESS':
-                has_build_inprogress = True
-                all_builds_failed = False
-
-            if build.get('status') != 'SUCCESS':
-                # no need to check the build/job results as the ci build not finished successfully yet
-                # and the qa-report build is not created yet
-                all_builds_has_failed = True
-                continue
-            elif dbci_build.name != db_kernelchange.trigger_name:
-                # not the trigger build, and the ci build finished successfully
-                all_builds_failed = False
-
-            str_configs = jenkins_api.get_build_configs(build)
-            if str_configs:
-                for lkft_build_config in str_configs.split():
-                    if lkft_build_config.startswith('lkft-gki-'):
-                        # gki builds does not have any qa-preoject set
-                        continue
-                    if lkft_build_configs.get(lkft_build_config) is not None:
-                        # only use the latest build(which might be triggered manually) for the same kernel change
-                        # even for the generic build that used the same lkft_build_config.
-                        # used the "-number" filter to make sure ci builds is sorted in descending,
-                        # and the first one is the latest
-                        continue
-                    lkft_build_configs[lkft_build_config] = build
-
-        not_started_ci_builds = expect_build_names - set(ci_build_names)
-
-        # need to check how to find the builds not started or failed
-        queued_ci_builds = []
-        disabled_ci_builds = []
-        not_reported_ci_builds = []
-        if len(not_started_ci_builds) > 0:
-            for cibuild_name in not_started_ci_builds:
-                is_queued_build = False
-                for queued_item in queued_ci_items:
-                    if cibuild_name == queued_item.get('build_name') and \
-                        db_kernelchange.describe == queued_item.get('KERNEL_DESCRIBE'):
-                            is_queued_build = True
-                            queued_ci_builds.append(queued_item)
-                if is_queued_build:
-                    continue
-
-                if jenkins_api.is_build_disabled(cibuild_name):
-                    disabled_ci_builds.append(cibuild_name)
-                #else:
-                #    not_reported_ci_builds.append(cibuild_name)
-
-        if queued_ci_builds:
-            kernel_change_status = "CI_BUILDS_IN_QUEUE"
-        elif has_build_inprogress:
-            kernel_change_status = "CI_BUILDS_IN_PROGRESS"
-        elif not_reported_ci_builds:
-            kernel_change_status = "CI_BUILDS_NOT_REPORTED"
-            logger.info("NOT REPORTED BUILDS: %s" % ' '.join(not_reported_ci_builds))
-        elif all_builds_failed:
-            kernel_change_status = "CI_BUILDS_ALL_FAILED"
-        elif all_builds_has_failed:
-            kernel_change_status = "CI_BUILDS_HAS_FAILED"
-        else:
-            kernel_change_status = "CI_BUILDS_COMPLETED" # might be the case that some failed, some passed
-
-        qa_report_builds = []
-        has_jobs_not_submitted = False
-        has_jobs_canceled = False
-        has_jobs_in_progress = False
-        all_jobs_finished = False
-
-        qareport_project_not_found_configs = []
-        qareport_build_not_found_configs = []
-        for lkft_build_config, ci_build in lkft_build_configs.items():
-            override_plans = jenkins_api.get_override_plans(ci_build)
-            projects = get_qa_server_project(lkft_build_config_name=lkft_build_config, override_plans=override_plans)
-            for (project_group, project_name) in projects:
-                target_lkft_project_full_name = "%s/%s" % (project_group, project_name)
-                (target_qareport_project, target_qareport_build) = get_qareport_build(db_kernelchange.describe,
-                                                                        target_lkft_project_full_name,
-                                                                        cached_qaprojects=lkft_projects,
-                                                                        cached_qareport_builds=project_builds)
-                if target_qareport_project is None:
-                    logger.info("target_qareport_project is not found for project:{}, for build config:{}".format(target_lkft_project_full_name, lkft_build_config))
-                    qareport_project_not_found_configs.append(lkft_build_config)
-                    continue
-
-                if target_qareport_build is None:
-                    logger.info("target_qareport_build is not found for project:{}, for build config:{}".format(target_lkft_project_full_name, lkft_build_config))
-                    qareport_build_not_found_configs.append(lkft_build_config)
-                    continue
-
-                created_str = target_qareport_build.get('created_at')
-                target_qareport_build['created_at'] = qa_report_api.get_aware_datetime_from_str(created_str)
-                target_qareport_build['project_name'] = project_name
-                target_qareport_build['project_group'] = project_group
-                target_qareport_build['project_slug'] = target_qareport_project.get('slug')
-                target_qareport_build['project_id'] = target_qareport_project.get('id')
-
-                jobs = get_jobs_for_build_from_db_or_qareport(build_id=target_qareport_build.get("id"), force_fetch_from_qareport=True)
-                classified_jobs = get_classified_jobs(jobs=jobs)
-                final_jobs = classified_jobs.get('final_jobs')
-                resubmitted_or_duplicated_jobs = classified_jobs.get('resubmitted_or_duplicated_jobs')
-
-                build_status = get_lkft_build_status(target_qareport_build, final_jobs)
-                if build_status['has_unsubmitted']:
-                    has_jobs_not_submitted = True
-                elif build_status['is_inprogress']:
-                    has_jobs_in_progress = True
-                elif build_status['has_canceled']:
-                    has_jobs_canceled = True
-                else:
-                    if kernel_change_finished_timestamp is None or \
-                        kernel_change_finished_timestamp < build_status['last_fetched_timestamp']:
-                        kernel_change_finished_timestamp = build_status['last_fetched_timestamp']
-                    target_qareport_build['duration'] = build_status['last_fetched_timestamp'] - target_qareport_build['created_at']
-
-                numbers_of_result = get_test_result_number_for_build(target_qareport_build, final_jobs)
-                target_qareport_build['numbers_of_result'] = numbers_of_result
-                target_qareport_build['qa_report_project'] = target_qareport_project
-                target_qareport_build['final_jobs'] = final_jobs
-                target_qareport_build['resubmitted_or_duplicated_jobs'] = resubmitted_or_duplicated_jobs
-                target_qareport_build['ci_build'] = ci_build
-
-                qa_report_builds.append(target_qareport_build)
-                test_numbers.addWithHash(numbers_of_result)
-
-        has_error = False
-        error_dict = {}
-        if kernel_change_status == "CI_BUILDS_COMPLETED":
-            if len(lkft_build_configs) == 0:
-                kernel_change_status = 'NO_QA_PROJECT_FOUND'
-            elif qareport_project_not_found_configs or qareport_build_not_found_configs:
-                has_error = True
-                if qareport_project_not_found_configs:
-                    kernel_change_status = 'HAS_QA_PROJECT_NOT_FOUND'
-                    error_dict['qareport_project_not_found_configs'] = qareport_project_not_found_configs
-                    logger.info("qareport_build_not_found_configs: %s" % ' '.join(qareport_build_not_found_configs))
-                if qareport_build_not_found_configs:
-                    kernel_change_status = 'HAS_QA_BUILD_NOT_FOUND'
-                    error_dict['qareport_build_not_found_configs'] = qareport_build_not_found_configs
-                    logger.info("qareport_build_not_found_configs: %s" % ' '.join(qareport_build_not_found_configs))
-            elif has_jobs_not_submitted:
-                kernel_change_status = 'HAS_JOBS_NOT_SUBMITTED'
-            elif has_jobs_in_progress:
-                kernel_change_status = 'HAS_JOBS_IN_PROGRESS'
-            elif has_jobs_canceled:
-                kernel_change_status = 'HAS_JOBS_CANCELED'
-            else:
-                kernel_change_status = 'ALL_COMPLETED'
-
-        kernelchange = {
-                'kernel_change': db_kernelchange,
-                'trigger_build': trigger_build,
-                'jenkins_ci_builds': jenkins_ci_builds,
-                'qa_report_builds': qa_report_builds,
-                'kernel_change_status': kernel_change_status,
-                'error_dict': error_dict,
-                'queued_ci_builds': queued_ci_builds,
-                'disabled_ci_builds': disabled_ci_builds,
-                'not_reported_ci_builds': not_reported_ci_builds,
-                'start_timestamp': trigger_build.get('start_timestamp'),
-                'finished_timestamp': kernel_change_finished_timestamp,
-                'test_numbers': test_numbers,
-            }
-
+        # if db_kernelchange.reported and db_kernelchange.result == 'ALL_COMPLETED':
+        kernelchange = { 'kernel_change': db_kernelchange }
         kernelchanges.append(kernelchange)
+        continue
+
+        # trigger_build = get_ci_build_info(db_kernelchange.trigger_name, db_kernelchange.trigger_number)
+        # trigger_build['kernel_change'] = db_kernelchange
+        # if trigger_build.get('start_timestamp') is None:
+        #     trigger_build['start_timestamp'] = db_kernelchange.timestamp
+        #     trigger_build['finished_timestamp'] = trigger_build['start_timestamp'] + trigger_build['duration']
+        #     kernel_change_status = "TRIGGER_BUILD_DELETED"
+        # else:
+        #     kernel_change_status = "TRIGGER_BUILD_COMPLETED"
+        # kernel_change_finished_timestamp = trigger_build['finished_timestamp']
+
+        # dbci_builds = CiBuild.objects_kernel_change.get_builds_per_kernel_change(kernel_change=db_kernelchange).order_by('name', '-number')
+        # expect_build_names = find_expect_cibuilds(trigger_name=db_kernelchange.trigger_name, branch_name=db_kernelchange.branch)
+
+        # # used to cached all the ci builds data
+        # jenkins_ci_builds = []
+        # # used to record the lkft build config to find the qa-report project
+        # lkft_build_configs = {}
+        # ci_build_names = []
+        # has_build_inprogress = False
+        # # success, inprogress, inqueue jobs are not failed jobs
+        # all_builds_failed = True
+        # all_builds_has_failed = False
+        # for dbci_build in dbci_builds:
+        #     #if dbci_build.name == db_kernelchange.trigger_name:
+        #     #    # ignore the trigger builds
+        #     #    continue
+        #     #else:
+        #     ci_build_names.append(dbci_build.name)
+
+        #     build = get_ci_build_info(dbci_build.name, dbci_build.number)
+        #     build['dbci_build'] = dbci_build
+        #     jenkins_ci_builds.append(build)
+        #     if build.get('status') == 'INPROGRESS':
+        #         has_build_inprogress = True
+        #         all_builds_failed = False
+
+        #     if build.get('status') != 'SUCCESS':
+        #         # no need to check the build/job results as the ci build not finished successfully yet
+        #         # and the qa-report build is not created yet
+        #         all_builds_has_failed = True
+        #         continue
+        #     elif dbci_build.name != db_kernelchange.trigger_name:
+        #         # not the trigger build, and the ci build finished successfully
+        #         all_builds_failed = False
+
+        #     str_configs = jenkins_api.get_build_configs(build)
+        #     if str_configs:
+        #         for lkft_build_config in str_configs.split():
+        #             if lkft_build_config.startswith('lkft-gki-'):
+        #                 # gki builds does not have any qa-preoject set
+        #                 continue
+        #             if lkft_build_configs.get(lkft_build_config) is not None:
+        #                 # only use the latest build(which might be triggered manually) for the same kernel change
+        #                 # even for the generic build that used the same lkft_build_config.
+        #                 # used the "-number" filter to make sure ci builds is sorted in descending,
+        #                 # and the first one is the latest
+        #                 continue
+        #             lkft_build_configs[lkft_build_config] = build
+
+        # not_started_ci_builds = expect_build_names - set(ci_build_names)
+
+        # # need to check how to find the builds not started or failed
+        # queued_ci_builds = []
+        # disabled_ci_builds = []
+        # not_reported_ci_builds = []
+        # if len(not_started_ci_builds) > 0:
+        #     for cibuild_name in not_started_ci_builds:
+        #         is_queued_build = False
+        #         for queued_item in queued_ci_items:
+        #             if cibuild_name == queued_item.get('build_name') and \
+        #                 db_kernelchange.describe == queued_item.get('KERNEL_DESCRIBE'):
+        #                     is_queued_build = True
+        #                     queued_ci_builds.append(queued_item)
+        #         if is_queued_build:
+        #             continue
+
+        #         if jenkins_api.is_build_disabled(cibuild_name):
+        #             disabled_ci_builds.append(cibuild_name)
+        #         #else:
+        #         #    not_reported_ci_builds.append(cibuild_name)
+
+        # if queued_ci_builds:
+        #     kernel_change_status = "CI_BUILDS_IN_QUEUE"
+        # elif has_build_inprogress:
+        #     kernel_change_status = "CI_BUILDS_IN_PROGRESS"
+        # elif not_reported_ci_builds:
+        #     kernel_change_status = "CI_BUILDS_NOT_REPORTED"
+        #     logger.info("NOT REPORTED BUILDS: %s" % ' '.join(not_reported_ci_builds))
+        # elif all_builds_failed:
+        #     kernel_change_status = "CI_BUILDS_ALL_FAILED"
+        # elif all_builds_has_failed:
+        #     kernel_change_status = "CI_BUILDS_HAS_FAILED"
+        # else:
+        #     kernel_change_status = "CI_BUILDS_COMPLETED" # might be the case that some failed, some passed
+
+        # qa_report_builds = []
+        # has_jobs_not_submitted = False
+        # has_jobs_canceled = False
+        # has_jobs_in_progress = False
+        # all_jobs_finished = False
+
+        # qareport_project_not_found_configs = []
+        # qareport_build_not_found_configs = []
+        # for lkft_build_config, ci_build in lkft_build_configs.items():
+        #     override_plans = jenkins_api.get_override_plans(ci_build)
+        #     projects = get_qa_server_project(lkft_build_config_name=lkft_build_config, override_plans=override_plans)
+        #     for (project_group, project_name) in projects:
+        #         target_lkft_project_full_name = "%s/%s" % (project_group, project_name)
+        #         (target_qareport_project, target_qareport_build) = get_qareport_build(db_kernelchange.describe,
+        #                                                                 target_lkft_project_full_name,
+        #                                                                 cached_qaprojects=lkft_projects,
+        #                                                                 cached_qareport_builds=project_builds)
+        #         if target_qareport_project is None:
+        #             logger.info("target_qareport_project is not found for project:{}, for build config:{}".format(target_lkft_project_full_name, lkft_build_config))
+        #             qareport_project_not_found_configs.append(lkft_build_config)
+        #             continue
+
+        #         if target_qareport_build is None:
+        #             logger.info("target_qareport_build is not found for project:{}, for build config:{}".format(target_lkft_project_full_name, lkft_build_config))
+        #             qareport_build_not_found_configs.append(lkft_build_config)
+        #             continue
+
+        #         created_str = target_qareport_build.get('created_at')
+        #         target_qareport_build['created_at'] = qa_report_api.get_aware_datetime_from_str(created_str)
+        #         target_qareport_build['project_name'] = project_name
+        #         target_qareport_build['project_group'] = project_group
+        #         target_qareport_build['project_slug'] = target_qareport_project.get('slug')
+        #         target_qareport_build['project_id'] = target_qareport_project.get('id')
+
+        #         jobs = get_jobs_for_build_from_db_or_qareport(build_id=target_qareport_build.get("id"), force_fetch_from_qareport=True)
+        #         classified_jobs = get_classified_jobs(jobs=jobs)
+        #         final_jobs = classified_jobs.get('final_jobs')
+        #         resubmitted_or_duplicated_jobs = classified_jobs.get('resubmitted_or_duplicated_jobs')
+
+        #         build_status = get_lkft_build_status(target_qareport_build, final_jobs)
+        #         if build_status['has_unsubmitted']:
+        #             has_jobs_not_submitted = True
+        #         elif build_status['is_inprogress']:
+        #             has_jobs_in_progress = True
+        #         elif build_status['has_canceled']:
+        #             has_jobs_canceled = True
+        #         else:
+        #             if kernel_change_finished_timestamp is None or \
+        #                 kernel_change_finished_timestamp < build_status['last_fetched_timestamp']:
+        #                 kernel_change_finished_timestamp = build_status['last_fetched_timestamp']
+        #             target_qareport_build['duration'] = build_status['last_fetched_timestamp'] - target_qareport_build['created_at']
+
+        #         numbers_of_result = get_test_result_number_for_build(target_qareport_build, final_jobs)
+        #         target_qareport_build['numbers_of_result'] = numbers_of_result
+        #         target_qareport_build['qa_report_project'] = target_qareport_project
+        #         target_qareport_build['final_jobs'] = final_jobs
+        #         target_qareport_build['resubmitted_or_duplicated_jobs'] = resubmitted_or_duplicated_jobs
+        #         target_qareport_build['ci_build'] = ci_build
+
+        #         qa_report_builds.append(target_qareport_build)
+        #         test_numbers.addWithHash(numbers_of_result)
+
+        # has_error = False
+        # error_dict = {}
+        # if kernel_change_status == "CI_BUILDS_COMPLETED":
+        #     if len(lkft_build_configs) == 0:
+        #         kernel_change_status = 'NO_QA_PROJECT_FOUND'
+        #     elif qareport_project_not_found_configs or qareport_build_not_found_configs:
+        #         has_error = True
+        #         if qareport_project_not_found_configs:
+        #             kernel_change_status = 'HAS_QA_PROJECT_NOT_FOUND'
+        #             error_dict['qareport_project_not_found_configs'] = qareport_project_not_found_configs
+        #             logger.info("qareport_build_not_found_configs: %s" % ' '.join(qareport_build_not_found_configs))
+        #         if qareport_build_not_found_configs:
+        #             kernel_change_status = 'HAS_QA_BUILD_NOT_FOUND'
+        #             error_dict['qareport_build_not_found_configs'] = qareport_build_not_found_configs
+        #             logger.info("qareport_build_not_found_configs: %s" % ' '.join(qareport_build_not_found_configs))
+        #     elif has_jobs_not_submitted:
+        #         kernel_change_status = 'HAS_JOBS_NOT_SUBMITTED'
+        #     elif has_jobs_in_progress:
+        #         kernel_change_status = 'HAS_JOBS_IN_PROGRESS'
+        #     elif has_jobs_canceled:
+        #         kernel_change_status = 'HAS_JOBS_CANCELED'
+        #     else:
+        #         kernel_change_status = 'ALL_COMPLETED'
+
+        # kernelchange = {
+        #         'kernel_change': db_kernelchange,
+        #         'trigger_build': trigger_build,
+        #         'jenkins_ci_builds': jenkins_ci_builds,
+        #         'qa_report_builds': qa_report_builds,
+        #         'kernel_change_status': kernel_change_status,
+        #         'error_dict': error_dict,
+        #         'queued_ci_builds': queued_ci_builds,
+        #         'disabled_ci_builds': disabled_ci_builds,
+        #         'not_reported_ci_builds': not_reported_ci_builds,
+        #         'start_timestamp': trigger_build.get('start_timestamp'),
+        #         'finished_timestamp': kernel_change_finished_timestamp,
+        #         'test_numbers': test_numbers,
+        #     }
+
+        # kernelchanges.append(kernelchange)
 
     return kernelchanges
 
@@ -3018,37 +3055,39 @@ def get_kernel_changes_info_wrapper_for_display(db_kernelchanges=[]):
         kernelchange_return['trigger_name'] = db_kernelchange.trigger_name
         kernelchange_return['trigger_number'] = db_kernelchange.trigger_number
 
-        if db_kernelchange.reported and db_kernelchange.result == 'ALL_COMPLETED':
-            kernelchange_return['start_timestamp'] = db_kernelchange.timestamp
-            kernelchange_return['finished_timestamp'] = None
-            kernelchange_return['duration'] = datetime.timedelta(seconds=db_kernelchange.duration)
-            kernelchange_return['status'] = db_kernelchange.result
-            kernelchange_return['number_passed'] = db_kernelchange.number_passed
-            kernelchange_return['number_failed'] = db_kernelchange.number_failed
-            kernelchange_return['number_assumption_failure'] = db_kernelchange.number_assumption_failure
-            kernelchange_return['number_ignored'] = db_kernelchange.number_ignored
-            kernelchange_return['number_total'] = db_kernelchange.number_total
-            kernelchange_return['modules_done'] = db_kernelchange.modules_done
-            kernelchange_return['modules_total'] = db_kernelchange.modules_total
-            kernelchange_return['jobs_finished'] = db_kernelchange.jobs_finished
-            kernelchange_return['jobs_total'] = db_kernelchange.jobs_total
-        else:
-            test_numbers = kernelchange.get('test_numbers')
-            kernelchange_return['start_timestamp'] = kernelchange.get('start_timestamp')
-            kernelchange_return['finished_timestamp'] = kernelchange.get('finished_timestamp')
-            kernelchange_return['duration'] = kernelchange_return['finished_timestamp'] - kernelchange_return['start_timestamp']
+        kernelchange_return['number_passed'] = db_kernelchange.number_passed
+        kernelchange_return['number_failed'] = db_kernelchange.number_failed
+        kernelchange_return['number_assumption_failure'] = db_kernelchange.number_assumption_failure
+        kernelchange_return['number_ignored'] = db_kernelchange.number_ignored
+        kernelchange_return['number_total'] = db_kernelchange.number_total
+        kernelchange_return['modules_done'] = db_kernelchange.modules_done
+        kernelchange_return['modules_total'] = db_kernelchange.modules_total
+        kernelchange_return['jobs_finished'] = db_kernelchange.jobs_finished
+        kernelchange_return['jobs_total'] = db_kernelchange.jobs_total
 
-            kernelchange_return['status'] = kernelchange.get('kernel_change_status')
+        # if db_kernelchange.reported and db_kernelchange.result == 'ALL_COMPLETED':
+        kernelchange_return['start_timestamp'] = db_kernelchange.timestamp
+        kernelchange_return['finished_timestamp'] = None
+        kernelchange_return['duration'] = datetime.timedelta(seconds=db_kernelchange.duration)
+        kernelchange_return['status'] = db_kernelchange.result
 
-            kernelchange_return['number_passed'] = test_numbers.number_passed
-            kernelchange_return['number_failed'] = test_numbers.number_failed
-            kernelchange_return['number_assumption_failure'] = test_numbers.number_assumption_failure
-            kernelchange_return['number_ignored'] = test_numbers.number_ignored
-            kernelchange_return['number_total'] = test_numbers.number_total
-            kernelchange_return['modules_done'] = test_numbers.modules_done
-            kernelchange_return['modules_total'] = test_numbers.modules_total
-            kernelchange_return['jobs_finished'] = test_numbers.jobs_finished
-            kernelchange_return['jobs_total'] = test_numbers.jobs_total
+        # else:
+        #     # test_numbers = kernelchange.get('test_numbers')
+        #     kernelchange_return['start_timestamp'] = kernelchange.get('start_timestamp')
+        #     kernelchange_return['finished_timestamp'] = kernelchange.get('finished_timestamp')
+        #     kernelchange_return['duration'] = kernelchange_return['finished_timestamp'] - kernelchange_return['start_timestamp']
+
+        #     kernelchange_return['status'] = kernelchange.get('kernel_change_status')
+
+            # kernelchange_return['number_passed'] = test_numbers.number_passed
+            # kernelchange_return['number_failed'] = test_numbers.number_failed
+            # kernelchange_return['number_assumption_failure'] = test_numbers.number_assumption_failure
+            # kernelchange_return['number_ignored'] = test_numbers.number_ignored
+            # kernelchange_return['number_total'] = test_numbers.number_total
+            # kernelchange_return['modules_done'] = test_numbers.modules_done
+            # kernelchange_return['modules_total'] = test_numbers.modules_total
+            # kernelchange_return['jobs_finished'] = test_numbers.jobs_finished
+            # kernelchange_return['jobs_total'] = test_numbers.jobs_total
 
         kernelchanges_return.append(kernelchange_return)
 
@@ -3090,9 +3129,111 @@ def list_branch_kernel_changes(request, branch):
                             "kernelchanges": kernelchanges,
                         }
             )
+
+
+def get_androidreportconfig_module():
+    module_name = "androidreportconfig"
+    androidreportconfig_url = "https://gitlab.com/Linaro/lkft/users/yongqin.liu/squad-report/-/raw/master/squad_report/androidreportconfig.py"
+
+    androidreportconfig_src = download_url_content(androidreportconfig_url)
+    androidreportconfig_obj = compile(androidreportconfig_src, module_name, 'exec')
+    import imp
+    androidreportconfig = imp.new_module(module_name)
+    exec(androidreportconfig_obj, androidreportconfig.__dict__)
+    # not sure what will happen if androidreportconfig_src is ""
+    return androidreportconfig
+
+
+def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_latest_from_qa_report=False):
+    if branch is None or describe is None:
+        return
+
+    androidreportconfig = get_androidreportconfig_module()
+    supported_kernels = androidreportconfig.get_all_report_kernels()
+    supported_projects = androidreportconfig.get_all_report_projects()
+    supported_linux_versions = androidreportconfig.get_all_kerver_reports()
+
+    kernelchange_branch_supported = False
+    kernelchange_described_found = False
+    qareport_builds = []
+    for project_alias_name in supported_kernels.get(branch, []):
+        project_alias = supported_projects.get(project_alias_name, None)
+        if project_alias.get("project_id", None):
+            squad_project = qa_report_api.get_project(project_alias.get("project_id"))
+        else:
+            project_full_name = qa_report_api.get_project_full_name_with_group_and_slug(project_alias.get("group"), project_alias.get('slug'))
+            squad_project = qa_report_api.get_project_with_name(project_full_name)
+
+        if squad_project is None:
+            continue
+        kernelchange_branch_supported = True
+        cache_qaproject_to_database(squad_project)
+        squad_project, db_reportproject = get_project_from_database_or_qareport(squad_project.get('id'), force_fetch_from_qareport=fetch_latest_from_qa_report)
+
+        qareport_build = qa_report_api.get_build_with_version(describe, squad_project.get('id'))
+        if qareport_build is None:
+            continue
+        kernelchange_described_found = True
+        get_build_info(db_reportproject, qareport_build, fetch_latest_from_qa_report=fetch_latest_from_qa_report)
+        qareport_builds.append(qareport_build)
+
+
+    if not kernelchange_described_found:
+        return
+
+    first_qareport_build = qareport_builds[0]
+    target_build_metadata = qa_report_api.get_build_meta_with_url(first_qareport_build.get("metadata"))
+    # https://gitlab.com/Linaro/lkft/users/yongqin.liu/android-common/-/pipelines/1075583866
+    gitlab_url = target_build_metadata.get("pipeline.trigger.url")
+    if gitlab_url:
+        trigger_number = gitlab_url.strip('/').split('/')[-1]
+        trigger_name = gitlab_url.strip('/').split('/')[-4]
+    else:
+        trigger_number = 0
+        trigger_name = 'unknown'
+    db_kernelchange, newly_created = KernelChange.objects.get_or_create(branch=branch, describe=describe)
+    if newly_created:
+        db_kernelchange.trigger_name = trigger_name
+        db_kernelchange.trigger_number = trigger_number
+        db_kernelchange.save()
+        db_cibuild, newly_created = CiBuild.objects.get_or_create(name=trigger_name, number=trigger_number)
+        if db_cibuild.kernel_change is None:
+            db_cibuild.kernel_change = db_kernelchange
+            db_cibuild.save()
+
+    kernelchange_number = qa_report.TestNumbers()
+    for qareport_build in qareport_builds:
+        build_metadata = qa_report_api.get_build_meta_with_url(qareport_build.get("metadata"))
+        # https://gitlab.com/Linaro/lkft/users/yongqin.liu/android-common/-/pipelines/1075583866
+        gitlab_url = target_build_metadata.get("build-url")
+        if gitlab_url:
+            build_number = gitlab_url.strip('/').split('/')[-1]
+            build_name = gitlab_url.strip('/').split('/')[-4]
+        else:
+            build_number = 0
+            build_name = 'unknown'
+        db_cibuild, newly_created = CiBuild.objects.get_or_create(name=build_name, number=build_number)
+        if db_cibuild.kernel_change is None:
+            db_cibuild.kernel_change = db_kernelchange
+            db_cibuild.save()
+
+        qareport_build['kernel_change'] = db_kernelchange
+        cache_qabuild_to_database(qareport_build, force=True)
+        kernelchange_number.addWithHash(qareport_build.get("numbers"))
+
+    kernelchange_number.setValueForDatabaseRecord(db_kernelchange)
+    db_kernelchange.save()
+
+
 @login_required
 @permission_required('lkft.admin_projects')
 def list_describe_kernel_changes(request, branch, describe):
+    build_id = request.GET.get('build_id', None)
+    fetch_latest_from_qa_report = request.GET.get('fetch_latest', "false").lower() == 'true'
+
+    if fetch_latest_from_qa_report:
+        fetch_data_for_describe_kernelchange(branch=branch, describe=describe, fetch_latest_from_qa_report=True)
+
     db_kernel_change = KernelChange.objects.get(branch=branch, describe=describe)
     db_report_builds = ReportBuild.objects.filter(kernel_change=db_kernel_change).order_by('qa_project__group', 'qa_project__name')
     db_ci_builds = CiBuild.objects.filter(kernel_change=db_kernel_change).exclude(name=db_kernel_change.trigger_name).order_by('name', 'number')
@@ -3163,6 +3304,7 @@ def list_describe_kernel_changes(request, branch, describe):
 
     report_jobs = []
     resubmitted_jobs = []
+    failures = {}
     for db_report_job in db_report_jobs:
         report_job = {}
         db_report_build = db_report_job.report_build
@@ -3176,6 +3318,7 @@ def list_describe_kernel_changes(request, branch, describe):
         report_job['qabuild_url'] = qa_report_api.get_build_url_with_group_slug_buildVersion(db_report_project.group,
                                                                                              db_report_project.slug,
                                                                                              db_report_build.version)
+        report_job['environment'] = db_report_job.environment
 
         report_job['lavajob_id'] = qa_report_api.get_qa_job_id_with_url(db_report_job.job_url)
         report_job['lavajob_url'] = db_report_job.job_url
@@ -3191,11 +3334,36 @@ def list_describe_kernel_changes(request, branch, describe):
         report_job['number_total'] = db_report_job.number_total
         report_job['modules_done'] = db_report_job.modules_done
         report_job['modules_total'] = db_report_job.modules_total
+        report_job['is_cts_vts_job'] = is_cts_vts_job(db_report_job.job_name)
 
         if db_report_job.resubmitted:
             resubmitted_jobs.append(report_job)
         else:
             report_jobs.append(report_job)
+
+
+        kernel_version = get_kver_with_pname_env(prj_name=db_report_project.name, env=report_job['environment'])
+        platform = report_job['environment'].split('_')[0]
+        metadata = {
+                'job_id': report_job['lavajob_id'],
+                'qa_job_id': report_job['qajob_id'],
+                'result_url': report_job['lavajob_attachment_url'] ,
+                'lava_nick': find_lava_config(report_job['lavajob_url'] ).get('nick'),
+                'kernel_version': kernel_version,
+                'platform': platform,
+                'project_name': db_report_project.name,
+                }
+        extract(None, failed_testcases_all=failures, metadata=metadata)
+
+    # sort failures
+    for module_name, failures_in_module in failures.items():
+        failures_in_module_copy = {}
+        for test_name, test_dict in failures_in_module.items():
+            result = test_dict.get('result')
+            if result == "fail":
+                failures_in_module_copy[test_name] = test_dict
+        failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
+    failures = collections.OrderedDict(sorted(failures.items()))
 
     return render(request, 'lkft-describe.html',
                        {
@@ -3205,6 +3373,8 @@ def list_describe_kernel_changes(request, branch, describe):
                             'ci_builds': ci_builds,
                             'report_jobs': report_jobs,
                             'resubmitted_jobs': resubmitted_jobs,
+                            'fetch_latest': fetch_latest_from_qa_report,
+                            'failures':failures,
                         }
             )
 
@@ -3291,7 +3461,7 @@ def list_projects_simple(request):
             if project.get('is_archived'):
                 continue
 
-            if not is_project_accessible(project_full_name=project.get('full_name'), user=request.user):
+            if not is_project_accessible(project_full_name=project.get('full_name'), user=request.user, is_public=project.get('is_public')):
                 # the current user has no permission to access the project
                 continue
 
@@ -3372,6 +3542,7 @@ def gitlab_projects(request):
 
 def gitlab_project_pipelines(request, project_id):
     logger.debug("start prepare for gitlab_project_pipelines")
+    branch = request.GET.get('branch', None)
     try:
         per_page = int(request.GET.get('per_page', '50'))
     except:
@@ -3380,7 +3551,7 @@ def gitlab_project_pipelines(request, project_id):
     try:
         project = gitlab_api.get_project(project_id)
         pipelines = gitlab_api.get_project_pipelines(project_id, per_page=per_page)
-
+        target_pipelines = []
         for pipeline in pipelines:
             logger.debug("start for pipeline %s" % pipeline.get('web_url'))
             updated_at_datetime = qa_report_api.get_aware_datetime_from_str(pipeline.get('updated_at'))
@@ -3397,6 +3568,8 @@ def gitlab_project_pipelines(request, project_id):
                 logger.warn(unexpect)
 
             pipeline['branch'] = variables_dict.get('KERNEL_BRANCH', 'Unknown')
+            if branch is not None and pipeline['branch'] != branch:
+                continue
             target_report_job_name = None
             if variables_dict.get('KERNEL_SPECIFIC') is not None:
                 # for Linaro/lkft/users/daniel.diaz/android-reporter
@@ -3411,6 +3584,13 @@ def gitlab_project_pipelines(request, project_id):
 
             pipeline['kernel_describe'] = kernel_describe
 
+            fetch_data_for_describe_kernelchange(branch=pipeline['branch'], describe=kernel_describe, fetch_latest_from_qa_report=True)
+            try:
+                db_kernel_change = KernelChange.objects.get(branch=pipeline['branch'], describe=kernel_describe)
+                pipeline['numbers'] = qa_report.TestNumbers().addWithDatabaseRecord(db_kernel_change)
+            except KernelChange.DoesNotExist:
+                pipeline['numbers'] = qa_report.TestNumbers()
+
             if target_report_job_name is not None:
                 jobs = gitlab_api.get_pipeline_jobs(project_id, pipeline.get('id'))
                 for job in jobs:
@@ -3418,8 +3598,9 @@ def gitlab_project_pipelines(request, project_id):
                         pipeline['artifacts_url'] = gitlab_api.get_job_artifacts_url(project_id, job.get('id'))
                         break
 
+            target_pipelines.append(pipeline)
         response_data = {
-            'pipelines': pipelines,
+            'pipelines': target_pipelines,
             'project': project,
         }
     except UrlNotFoundException as e:
@@ -3436,6 +3617,52 @@ def gitlab_project_pipelines(request, project_id):
     logger.debug("before redirect for gitlab_project_pipelines")
     return render(request, 'lkft-gitlab-project-pipelines.html', response_data)
 
+def matrix(request):
+    matrix_data = []
+
+    androidreportconfig = get_androidreportconfig_module()
+    supported_kernels = androidreportconfig.get_all_report_kernels()
+    supported_projects = androidreportconfig.get_all_report_projects()
+    supported_linux_versions = androidreportconfig.get_all_kerver_reports()
+
+    matrix_data = {
+        # "branch": {
+        #     "os": [],
+        # }
+    }
+    android_versions = []
+    for branch, project_alias_names in supported_kernels.items():
+        android_os_projects = matrix_data.get(branch, None)
+        if android_os_projects is None:
+            android_os_projects = {}
+            matrix_data[branch] = android_os_projects
+        for project_alias_name in project_alias_names:
+            project_alias = supported_projects.get(project_alias_name)
+            android_version = project_alias.get("OS")
+            projects = android_os_projects.get(android_version, None)
+            if projects is None:
+                projects = []
+                android_os_projects[android_version] = projects
+            if not project_alias in projects:
+                projects.append(project_alias)
+
+            if not android_version in android_versions:
+                android_versions.append(android_version)
+
+
+    android_versions = sorted(android_versions)
+    for branch, android_os_projects in matrix_data.items():
+        for android_version in android_versions:
+            if android_os_projects.get(android_version) is None:
+                android_os_projects[android_version] = {}
+        matrix_data[branch] = collections.OrderedDict(sorted(android_os_projects.items()))
+    matrix_data = collections.OrderedDict(sorted(matrix_data.items()))
+
+    response_data = {
+        'matrix_data': matrix_data,
+        'android_versions': android_versions,
+    }
+    return render(request, 'lkft-projects-matrix.html', response_data)
 ########################################
 ### Register for IRC functions
 ########################################

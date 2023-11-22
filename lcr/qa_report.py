@@ -599,11 +599,30 @@ class QAReportApi(RESTFullApi):
         return self.call_with_api_url(api_url=api_url, method='POST', returnResponse=True, post_data=post_data)
 
 
-    '''
-        not work yet, not exported by the qa-report api yet
-    '''
     def canceljob(self, qa_job_id):
-        api_url = 'api/cancel/%s' % qa_job_id
+        api_url = 'api/testjobs/%s/cancel' % qa_job_id
+        return self.call_with_api_url(api_url=api_url, method='POST', returnResponse=True)
+
+
+    def get_environment_with_url(self, environment_url):
+        return self.call_with_full_url(request_url=environment_url)
+
+    def get_backend_with_url(self, backend_url):
+        return self.call_with_full_url(request_url=backend_url)
+
+    def get_group_with_url(self, group_url):
+        return self.call_with_full_url(request_url=group_url)
+
+    def fetchjob(self, qa_job_id):
+        qa_job = self.get_job_with_id(qa_job_id)
+        qa_build = self.get_build_with_url(qa_job.get("target_build"))
+        qa_project = self.get_project_with_url(qa_job.get("target"))
+        qa_group = self.get_group_with_url(qa_project.get("group"))
+        qa_backend = self.get_backend_with_url(qa_job.get("backend"))
+
+        # group_slug, project_slug, version, environment_slug, backend_name
+        api_url = 'api/fetchjob/%s/%s/%s/%s/%s' % (qa_group.get('slug'), qa_project.get("slug"), qa_build.get("version"), qa_job.get("environment"), qa_backend.get("name"))
+        logger.info(f"fetchjob api url={api_url}")
         return self.call_with_api_url(api_url=api_url, method='POST', returnResponse=True)
 
     '''
@@ -768,12 +787,12 @@ class TestNumbers():
         if hasattr(db_record, 'jobs_finished'):
             self.jobs_finished = self.jobs_finished + db_record.jobs_finished
         if hasattr(db_record, 'jobs_total'):
-            self.jobs_total = self.jobs_total + testNumbers.jobs_total
+            self.jobs_total = self.jobs_total + db_record.jobs_total
 
         if hasattr(db_record, 'number_regressions'):
             self.number_regressions = self.number_regressions + db_record.number_regressions
         if hasattr(db_record, 'number_antiregressions'):
-            self.number_antiregressions = self.number_antiregressions + testNumbers.number_antiregressions
+            self.number_antiregressions = self.number_antiregressions + db_record.number_antiregressions
 
         return self
 
