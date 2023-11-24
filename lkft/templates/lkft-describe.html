@@ -13,6 +13,26 @@
 {% endblock %}
 
 {% block content %}
+<script type="text/javascript">
+    function toggle() {
+      for (var i = 1; i < arguments.length; i++) {
+        var e = document.getElementById(arguments[i]);
+        if (e) {
+          e.style.display = e.style.display == 'none' ? 'block': 'none';
+        }
+      }
+      var link = arguments[0];
+      var s = link.getElementsByTagName('span')[0];
+      var uarr = String.fromCharCode(0x25b6);
+      var darr = String.fromCharCode(0x25bc);
+      s.textContent = s.textContent == uarr ? darr : uarr;
+      return false;
+    }
+    function moduleToggle(link, id) {
+      toggle(link, 'module-details-' + id);
+      return false;
+    }
+</script>
 <div class="row">
 <table class="table"><tbody><tr>
         <td style="text-align: right;">
@@ -203,12 +223,13 @@
 
 {% if report_jobs %}
 <div>
-<h2>Jobs List:</h2>
-<table border="1">
+<h2>
+  <a href="#" onclick="return toggle(this, 'final-jobs-list')" name="final-jobs-list"><span>▶</span>Jobs List:</a>
+</h2>
+<table id="final-jobs-list" border="1" style="display: none;">
 <tr>
     <th> Index</th>
-    <th> QAProjectGroup</th>
-    <th> QAProjectName</th>
+    <th> QAProjectGroup/Name</th>
     <th> Job Id/Job Link</a> </th>
     <th> Job Name/Attachment</a></th>
     <th> Job Status </th>
@@ -224,8 +245,7 @@
 {% for job in report_jobs %}
 <tr>
     <td> {{ forloop.counter }}</td>
-    <td> {{job.qaproject_group }}</td>
-    <td> {{job.qaproject_name }}</td>
+    <td nowrap>{{job.qaproject_group}}/{{job.qaproject_name }}</td>
     <td> <a href="{{job.lavajob_url}}">{{job.lavajob_id}}</a> </td>
     {% if job.lavajob_attachment_url %}
     <td nowrap> <a target='_blank' href="{{job.lavajob_attachment_url}}">{{job.lavajob_name}} </a></td>
@@ -272,12 +292,13 @@
 
 {% if resubmitted_jobs %}
 <div>
-<h2>Resubmitted Jobs List:</h2>
-<table border="1">
+<h2>
+  <a href="#" onclick="return toggle(this, 'resubmitted-jobs-list')" name="resubmitted-jobs-list"><span>▶</span>Resubmitted Jobs List:</a>
+</h2>
+<table id="resubmitted-jobs-list" border="1" style="display: none;">
 <tr>
     <th> Index</th>
-    <th> QAProjectGroup</th>
-    <th> QAProjectName</th>
+    <th> QAProjectGroup/Name</th>
     <th> Job Id/Job Link</a> </th>
     <th> Job Name/Attachment</a></th>
     <th> Job Status </th>
@@ -286,9 +307,8 @@
 </tr>
 {% for job in resubmitted_jobs %}
 <tr>
-    <td> {{ forloop.counter }}</td>
-    <td> {{job.qaproject_group }}</td>
-    <td> {{job.qaproject_name }}</td>
+    <td>{{ forloop.counter }}</td>
+    <td nowrap>{{job.qaproject_group}}/{{job.qaproject_name }}</td>
     <td> <a href="{{job.lavajob_url}}">{{job.lavajob_id}}</a> </td>
     {% if job.lavajob_url %}
     <td nowrap> <a target='_blank' href="{{job.lavajob_url}}">{{job.lavajob_name}} </a></td>
@@ -310,62 +330,45 @@
 {% endif %}
 
 {% if failures %}
-<script type="text/javascript">
-    function toggle() {
-      for (var i = 0; i < arguments.length; i++) {
-        var e = document.getElementById(arguments[i]);
-        if (e) {
-          e.style.display = e.style.display == 'none' ? 'block': 'none';
-        }
-      }
-      return false;
-    }
-    function moduleToggle(link, id) {
-      toggle('module-details-' + id);
-      var s = link.getElementsByTagName('span')[0];
-      var uarr = String.fromCharCode(0x25b6);
-      var darr = String.fromCharCode(0x25bc);
-      s.textContent = s.textContent == uarr ? darr : uarr;
-      return false;
-    }
-</script>
 <div align="left">
 <h2>Details of Failures</h2>
 {% for module_name, module_failures in failures.items %}
 {% if module_failures|length > 0 %}
 <div>
-    <a href="#" onclick="return moduleToggle(this, '{{module_name}}')" name="{{module_name}}"><span>▶</span> {{module_name}} has {{ module_failures|length }} failures</a>
+    <a href="#" onclick="return moduleToggle(this, '{{module_name}}')" name="{{module_name}}">
+        <span>▶</span>
+        {{module_name}} has {{ module_failures|length }} failures
+    </a>
 </div>
 <table id="module-details-{{module_name}}" class="testdetails" style="display: none;">
 <tbody>
 <tr>
     <th>Index</th>
     <th>Test</th>
-    <th>Result</th>
-    <th>Kernels</th>
-    <th>Projects</th>
+    {% for module_project_module_name, module_project_project_failures_dict in module_projects.items %}
+    {% if module_project_module_name == module_name %}
+    {% for module_project_project_name, module_project_project_failures in module_project_project_failures_dict.items %}
+        <th>{{module_project_project_name}}({{module_project_project_failures|length}})</th>
+    {% endfor %}
+    {% endif %}
+    {% endfor %}
 </tr>
 {% for testcase_name, failure in module_failures.items %}
 <tr>
     <td> {{ forloop.counter }}</td>
     <td class="testname">{{failure.test_name}}</td>
-    <td class="testname">{{failure.result}}</td>
-    <td class="testname" nowrap>
-        {% with failure.kernel_versions as kernel_versions %}
-        {% for kernel_version in kernel_versions %}
-        {% if not forloop.first %}<br/>{% endif %}
-        {{ kernel_version }}
-        {% endfor %}
-        {% endwith %}
-    </td>
-    <td class="testname" nowrap>
-        {% with failure.project_names as project_names %}
-        {% for project_name in project_names %}
-        {% if not forloop.first %}<br/>{% endif %}
-        {{ project_name }}
-        {% endfor %}
-        {% endwith %}
-    </td>
+    {% for module_project_module_name, module_project_project_failures_dict in module_projects.items %}
+    {% if module_project_module_name == module_name %}
+    {% for module_project_project_name, module_project_project_failures in module_project_project_failures_dict.items %}
+        {% if module_project_project_name in failure.project_names %}
+            <td class="testname" nowrap>True</td>
+        {% else %}
+            <td class="testname" nowrap>&nbsp;</td>
+        {% endif %}
+    {% endfor %}
+    {% endif %}
+    {% endfor %}
+
 </tr>
 {% endfor %}
 </tbody>

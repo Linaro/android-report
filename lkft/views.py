@@ -3341,10 +3341,9 @@ def list_describe_kernel_changes(request, branch, describe):
 
         if db_report_job.resubmitted:
             resubmitted_jobs.append(report_job)
-        else:
-            report_jobs.append(report_job)
+            continue
 
-
+        report_jobs.append(report_job)
         kernel_version = get_kver_with_pname_env(prj_name=db_report_project.name, env=report_job['environment'])
         platform = report_job['environment'].split('_')[0]
         metadata = {
@@ -3359,14 +3358,32 @@ def list_describe_kernel_changes(request, branch, describe):
         extract(None, failed_testcases_all=failures, metadata=metadata)
 
     # sort failures
+    module_projects = {
+        # 'module_name': [
+        #                 'project_name': project_failures,
+        #                 ]
+    }
     for module_name, failures_in_module in failures.items():
         failures_in_module_copy = {}
+        module_project_failures = collections.OrderedDict()
+        module_projects[module_name] = module_project_failures
         for test_name, test_dict in failures_in_module.items():
             result = test_dict.get('result')
-            if result == "fail":
-                failures_in_module_copy[test_name] = test_dict
+            if result != "fail":
+                continue
+            failures_in_module_copy[test_name] = test_dict
+
+            for project_name in test_dict.get('project_names', []):
+                project_failures = module_project_failures.get(project_name)
+                if project_failures is None:
+                    project_failures = []
+                    module_project_failures[project_name] = project_failures
+                project_failures.append(test_dict)
+
         failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
+
     failures = collections.OrderedDict(sorted(failures.items()))
+    report_jobs = sorted(report_jobs, key=lambda job: (job.get('lavajob_name'), job.get('qaproject_group'), job.get('qaproject_name')))
 
     return render(request, 'lkft-describe.html',
                        {
@@ -3378,6 +3395,7 @@ def list_describe_kernel_changes(request, branch, describe):
                             'resubmitted_jobs': resubmitted_jobs,
                             'fetch_latest': fetch_latest_from_qa_report,
                             'failures':failures,
+                            'module_projects': module_projects,
                         }
             )
 

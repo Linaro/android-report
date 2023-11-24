@@ -15,51 +15,51 @@
 {% block content %}
 {% if error_msg %}
 <div class="alert alert-warning" role="alert">
-	<p class="lead">The following errors reported when try to load this page:</p>
-	<p class="lead">&nbsp;&nbsp;&nbsp;&nbsp;<strong>{{error_msg}}</strong></p>
-	<p class="lead">Please check and try again</p>
+    <p class="lead">The following errors reported when try to load this page:</p>
+    <p class="lead">&nbsp;&nbsp;&nbsp;&nbsp;<strong>{{error_msg}}</strong></p>
+    <p class="lead">Please check and try again</p>
 </div>
 {% else %}
 <div>
-	<table border="1">
-		<tr>
-			<th>Index</th>
-			<th>Pipeline Id</th>
-			<th>Status</th>
-			<th>Created At</th>
-			<th>Updated At</th>
-			<th>Kernel Branch</th>
-			<th>Kernel Describe<br/>(Need login gitlab to download artifacts)</th>
-			<th>Passed</th>
-			<th>Failed</th>
-			<th>AssumptionF</th>
-			<th>Ignored</th>
-			<th>Total</th>
-			<th>Modules Done/Total</th>
-			<th>Jobs Completed/Total</th>
-	</tr>
-	{% for pipeline in pipelines %}
-	<tr>
-	    <td>{{ forloop.counter }}</td>
-	    <td><a href="{{pipeline.web_url}}/">{{pipeline.id}}</a></td>
+    <table border="1">
+        <tr>
+            <th>Index</th>
+            <th>Pipeline Id</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th>Updated At</th>
+            <th>Kernel Branch</th>
+            <th>Kernel Describe<br/>(Need login gitlab to download artifacts)</th>
+            <th>Passed</th>
+            <th>Failed</th>
+            <th>AssumptionF</th>
+            <th>Ignored</th>
+            <th>Total</th>
+            <th>Modules Done/Total</th>
+            <th>Jobs Completed/Total</th>
+    </tr>
+    {% for pipeline in pipelines %}
+    <tr>
+        <td>{{ forloop.counter }}</td>
+        <td><a href="{{pipeline.web_url}}/">{{pipeline.id}}</a></td>
 
-	    {% if pipeline.status == "manual" %}
-	    <td><p style="background-color: green">{{pipeline.status}}</p></td>
-	    {% elif pipeline.status == "failed" %}
-	    <td><p style="background-color: red">{{pipeline.status}}</p></td>
-	    {% else %}
-	    <td>{{pipeline.status}}</td>
-	    {% endif %}
+        {% if pipeline.status == "manual" %}
+        <td><p style="background-color: green">{{pipeline.status}}</p></td>
+        {% elif pipeline.status == "failed" %}
+        <td><p style="background-color: red">{{pipeline.status}}</p></td>
+        {% else %}
+        <td>{{pipeline.status}}</td>
+        {% endif %}
 
-	    <td>{{ pipeline.created_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.created_at_datetime|timesince}} ago</td>
-	    <td>{{ pipeline.updated_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.updated_at_datetime|timesince}} ago</td>
-	    <td><a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/">{{pipeline.branch}}</a></td>
+        <td>{{ pipeline.created_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.created_at_datetime|timesince}} ago</td>
+        <td>{{ pipeline.updated_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.updated_at_datetime|timesince}} ago</td>
+        <td><a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/">{{pipeline.branch}}</a></td>
         <td>
-	    {% if pipeline.artifacts_url %}
-	    <a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.kernel_describe}}</a>
-	    {% else %}
-	    {{pipeline.kernel_describe}}
-	    {% endif %}
+        {% if pipeline.artifacts_url %}
+        <a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.kernel_describe}}</a>
+        {% else %}
+        {{pipeline.kernel_describe}}
+        {% endif %}
         </td>
         <td align="right">
             <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
@@ -92,13 +92,23 @@
             </a>
         </td>
         <td align="right">
-            <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">
+            {% if pipeline.numbers.jobs_total == 0 %}
+              <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}/?fetch_latest=true">
                 {{pipeline.numbers.jobs_finished}}/{{pipeline.numbers.jobs_total}}
-            </a>
+              </a>
+            {% elif pipeline.numbers.jobs_finished !=  pipeline.numbers.jobs_total %}
+              <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}/">
+                <p style="color: red">{{pipeline.numbers.jobs_finished}}/{{pipeline.numbers.jobs_total}}</p>
+              </a>
+            {% else %}
+              <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}/">
+                {{pipeline.numbers.jobs_finished}}/{{pipeline.numbers.jobs_total}}
+              </a>
+            {% endif %}
         </td>
-	</tr>
-	{% endfor %}
-	</table>
+    </tr>
+    {% endfor %}
+    </table>
 </div>
 {% endif %}
 {% endblock %}
