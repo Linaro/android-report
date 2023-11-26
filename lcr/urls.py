@@ -15,12 +15,14 @@ Including another URLconf
 """
 from django.conf.urls import include, url
 from django.contrib import admin
+from django.http import HttpResponse
 
 from . import accountviews
 from . import settings
 
 urlpatterns = [
     url(r'^', include('lkft.urls')),
+    url(r'^robots.txt$', lambda _: HttpResponse("User-agent: *\nDisallow: /\n", content_type='text/plain')),
     url(r'^lkft/', include('lkft.urls')),
     url(r'^admin/', admin.site.urls),
 
