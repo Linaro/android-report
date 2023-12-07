@@ -10,7 +10,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
-from django.conf.urls import include, url
 import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)

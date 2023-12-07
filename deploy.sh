@@ -118,6 +118,8 @@ fi
 # cat jobs.txt |awk '{print $2}' >job-ids.txt
 # sqlite3 db.sqlite3 "select * from report_testcase where job_id = 99965 ORDER BY name;"
 # sqlite3 db.sqlite3 "delete from report_testcase where job_id = 99859;"
+# sqlite3 datafiles/db.sqlite3 "select * from lkft_testcase WHERE NOT EXISTS (SELECT 1 FROM lkft_testsuite t WHERE lkft_testcase.testsuite_id = t.id);"
+# sqlite3 datafiles/db.sqlite3 "delete from lkft_testcase WHERE NOT EXISTS (SELECT 1 FROM lkft_testsuite t WHERE lkft_testcase.testsuite_id = t.id);"
 # https://www.sqlite.org/lang.html
 # https://www.sqlitetutorial.net/sqlite-index/
 #   CREATE [UNIQUE] INDEX index_name ON table_name(column_list);

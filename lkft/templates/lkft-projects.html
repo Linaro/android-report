@@ -50,7 +50,7 @@
     <th>Status</th>
 </tr>
 {% for bug in open_bugs %}
-    {% ifnotequal bug.status 'RESOLVED' %}
+    {% if bug.status != 'RESOLVED' %}
     <tr>
         <td>{{ forloop.counter }}</td>
         <td><a href="https://bugs.linaro.org/show_bug.cgi?id={{ bug.id }}">{{ bug.id }}</a></td>
@@ -58,7 +58,7 @@
         <td>{{ bug.version }}</td>
         <td>{{ bug.status }}</td>
     </tr>
-    {% endifnotequal %}
+    {% endif %}
 {% endfor %}
 </table>
 {% else %}

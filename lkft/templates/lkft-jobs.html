@@ -254,7 +254,7 @@ No result for benchmark test jobs.
     <th>Assignee</th>
 </tr>
 {% for bug in open_bugs %}
-    {% ifnotequal  bug.status 'RESOLVED' %}
+    {% if bug.status != 'RESOLVED' %}
     <tr>
         <td>{{ forloop.counter }}</td>
         <td><a href="{{bugzilla_show_bug_prefix}}{{ bug.id }}">{{ bug.id }}</a></td>
@@ -262,7 +262,7 @@ No result for benchmark test jobs.
         <td>{{ bug.status }}</td>
         <td>{{ bug.assigned_to }}</td>
     </tr>
-    {% endifnotequal %}
+    {% endif %}
 {% endfor %}
 </table>
 {% endif %}
@@ -276,14 +276,14 @@ No result for benchmark test jobs.
     <th>Status</th>
 </tr>
 {% for bug in bugs_not_reproduced %}
-    {% ifnotequal bug.status 'RESOLVED' %}
+    {% if bug.status != 'RESOLVED' %}
     <tr>
         <td>{{ forloop.counter }}</td>
         <td><a href="{{bugzilla_show_bug_prefix}}{{ bug.id }}">{{ bug.id }}</a></td>
         <td>{{ bug.summary }}</td>
         <td>{{ bug.status }}</td>
     </tr>
-    {% endifnotequal %}
+    {% endif %}
 {% endfor %}
 </table>
 {% endif %}

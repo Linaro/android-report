@@ -203,7 +203,7 @@ class JobMeta(models.Model):
 
 
 class TestSuite(models.Model):
-    report_job = models.ForeignKey(ReportJob)
+    report_job = models.ForeignKey(ReportJob, on_delete=models.CASCADE)
 
     name = models.CharField(max_length=256, db_index=True)
     abi = models.CharField(max_length=16, null=True)
@@ -230,7 +230,7 @@ class TestCase(models.Model):
     lava_nick = models.CharField(max_length=64, db_index=True)
 
     # failure should be deleted when this testcase deleted
-    testsuite = models.ForeignKey(TestSuite, null=True)
+    testsuite = models.ForeignKey(TestSuite, null=True, on_delete=models.CASCADE)
 
     message = models.TextField(null=True, blank=True)
     stacktrace = models.TextField(null=True, blank=True)

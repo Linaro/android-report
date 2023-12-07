@@ -1,5 +1,5 @@
-Django==1.11.17
-django-debug-toolbar==1.11
+Django==4.2.8
+django-debug-toolbar
 pyaml
 django-crispy-forms
 python-ldap
@@ -10,3 +10,8 @@ psycopg2
 python-dateutil
 matplotlib
 ruamel.yaml
+requests-oauthlib
+pyjwt[crypto]
+python3-openid
+requests-oauthlib
+django-allauth

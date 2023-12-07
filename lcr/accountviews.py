@@ -13,13 +13,14 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 
 from django.views import generic
-from django.utils.http import is_safe_url
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, REDIRECT_FIELD_NAME, update_session_auth_hash
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.core.urlresolvers import reverse_lazy
+from django.urls import reverse_lazy
+
 from django.shortcuts import render, redirect
 
 from .forms import RegistrationForm
@@ -57,7 +58,7 @@ class LoginView(generic.FormView):
 
     def get_success_url(self):
         redirect_to = self.request.GET.get(self.redirect_field_name)
-        if not is_safe_url(url=redirect_to, host=self.request.get_host()):
+        if not url_has_allowed_host_and_scheme(redirect_to, self.request.get_host()):
             redirect_to = self.success_url
         return redirect_to
 
