@@ -38,4 +38,6 @@ urlpatterns = [
     url(r'^gitlab/$', views.gitlab_projects, name='gitlab_projects'),
     url(r'^gitlab/(%s)/$' % gitlab_project_id_pat, views.gitlab_project_pipelines, name='gitlab_progect_pipelines'),
     url(r'^matrix/$', views.matrix, name='matrix'),
+
+    url(r'^aosp/(%s)/$' % (basic_pat), views.list_aosp_versions, name='list_aosp_versions'),
 ]

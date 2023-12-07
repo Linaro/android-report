@@ -53,7 +53,7 @@
 
         <td>{{ pipeline.created_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.created_at_datetime|timesince}} ago</td>
         <td>{{ pipeline.updated_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.updated_at_datetime|timesince}} ago</td>
-        <td><a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/">{{pipeline.branch}}</a></td>
+        <td nowrap><a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/">{{pipeline.branch}}</a></td>
         <td>
         {% if pipeline.artifacts_url %}
         <a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.kernel_describe}}</a>

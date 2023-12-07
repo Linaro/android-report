@@ -3400,6 +3400,161 @@ def list_describe_kernel_changes(request, branch, describe):
             )
 
 
+
+@login_required
+@permission_required('lkft.admin_projects')
+def list_aosp_versions(request, aosp_version):
+    androidreportconfig = get_androidreportconfig_module()
+    supported_aosp_version = androidreportconfig.get_all_aosp_versions()
+    supported_projects = androidreportconfig.get_all_report_projects()
+
+    aosp_info = {}
+    # aosp_info['branch'] = db_kernel_change.branch
+    # aosp_info['describe'] = db_kernel_change.describe
+    # aosp_info['result'] = db_kernel_change.result
+    # aosp_info['trigger_name'] = db_kernel_change.trigger_name
+    # aosp_info['trigger_number'] = db_kernel_change.trigger_number
+    # aosp_info['timestamp'] = db_kernel_change.timestamp
+    # aosp_info['duration'] = datetime.timedelta(seconds=db_kernel_change.duration)
+    # aosp_info['number_passed'] = db_kernel_change.number_passed
+    # aosp_info['number_failed'] = db_kernel_change.number_failed
+    # aosp_info['number_assumption_failure'] = db_kernel_change.number_assumption_failure
+    # aosp_info['number_ignored'] = db_kernel_change.number_ignored
+    # aosp_info['number_total'] = db_kernel_change.number_total
+    # aosp_info['modules_done'] = db_kernel_change.modules_done
+    # aosp_info['modules_total'] = db_kernel_change.modules_total
+    # aosp_info['jobs_finished'] = db_kernel_change.jobs_finished
+    # aosp_info['jobs_total'] = db_kernel_change.jobs_total
+    # aosp_info['reported'] = db_kernel_change.reported
+
+
+    aosp_projects = supported_aosp_version.get(aosp_version, [])
+    report_builds = []
+    db_report_jobs = []
+    for project_alias_name in aosp_projects:
+        qa_project_alias = supported_projects.get(project_alias_name, None)
+        if qa_project_alias is None:
+            continue
+        db_report_builds = ReportBuild.objects.filter(qa_project__group=qa_project_alias.get('group'), qa_project__name=qa_project_alias.get('slug')).order_by('-qa_build_id')
+        if len(db_report_builds) == 0:
+            continue
+        db_report_build = db_report_builds[0]
+        db_kernel_change = db_report_build.kernel_change
+
+        report_build = {}
+        report_build['qa_project'] = db_report_build.qa_project
+        report_build['started_at'] = db_report_build.started_at
+        report_build['number_passed'] = db_report_build.number_passed
+        report_build['number_failed'] = db_report_build.number_failed
+        report_build['number_assumption_failure'] = db_report_build.number_assumption_failure
+        report_build['number_ignored'] = db_report_build.number_ignored
+        report_build['number_total'] = db_report_build.number_total
+        report_build['modules_done'] = db_report_build.modules_done
+        report_build['modules_total'] = db_report_build.modules_total
+        report_build['jobs_finished'] = db_report_build.jobs_finished
+        report_build['jobs_total'] = db_report_build.jobs_total
+        report_build['qa_build_id'] = db_report_build.qa_build_id
+        report_build['status'] = db_report_build.status
+        report_build['version'] = db_report_build.version
+        if db_report_build.fetched_at and db_report_build.started_at:
+            report_build['duration'] = db_report_build.fetched_at - db_report_build.started_at
+
+        report_builds.append(report_build)
+
+        db_report_jobs_of_build = ReportJob.objects.filter(report_build=db_report_build)
+        db_report_jobs.extend(db_report_jobs_of_build)
+
+    report_jobs = []
+    resubmitted_jobs = []
+    failures = {}
+    for db_report_job in db_report_jobs:
+        report_job = {}
+        db_report_build = db_report_job.report_build
+        db_report_project = db_report_build.qa_project
+        report_job['qaproject_full_name'] = "%s/%s" % (db_report_project.group, db_report_project.name)
+        report_job['qaproject_group'] = db_report_project.group
+        report_job['qaproject_name'] = db_report_project.name
+        report_job['qaproject_url'] = qa_report_api.get_project_url_with_group_slug(db_report_project.group, db_report_project.slug)
+        report_job['qabuild_version'] = db_report_build.version
+        report_job['qajob_id'] = db_report_job.qa_job_id
+        report_job['qabuild_url'] = qa_report_api.get_build_url_with_group_slug_buildVersion(db_report_project.group,
+                                                                                             db_report_project.slug,
+                                                                                             db_report_build.version)
+        report_job['environment'] = db_report_job.environment
+
+        report_job['lavajob_id'] = qa_report_api.get_qa_job_id_with_url(db_report_job.job_url)
+        report_job['lavajob_url'] = db_report_job.job_url
+        report_job['lavajob_name'] = db_report_job.job_name
+        report_job['lavajob_attachment_url'] = db_report_job.attachment_url
+        report_job['lavajob_status'] = db_report_job.status
+        report_job['failure_msg'] = db_report_job.failure_msg
+
+        report_job['number_passed'] = db_report_job.number_passed
+        report_job['number_failed'] = db_report_job.number_failed
+        report_job['number_assumption_failure'] = db_report_job.number_assumption_failure
+        report_job['number_ignored'] = db_report_job.number_ignored
+        report_job['number_total'] = db_report_job.number_total
+        report_job['modules_done'] = db_report_job.modules_done
+        report_job['modules_total'] = db_report_job.modules_total
+        report_job['is_cts_vts_job'] = is_cts_vts_job(db_report_job.job_name)
+
+        if db_report_job.resubmitted:
+            resubmitted_jobs.append(report_job)
+            continue
+
+        report_jobs.append(report_job)
+        kernel_version = get_kver_with_pname_env(prj_name=db_report_project.name, env=report_job['environment'])
+        platform = report_job['environment'].split('_')[0]
+        metadata = {
+                'job_id': report_job['lavajob_id'],
+                'qa_job_id': report_job['qajob_id'],
+                'result_url': report_job['lavajob_attachment_url'] ,
+                'lava_nick': find_lava_config(report_job['lavajob_url'] ).get('nick'),
+                'kernel_version': kernel_version,
+                'platform': platform,
+                'project_name': db_report_project.name,
+                }
+        extract(None, failed_testcases_all=failures, metadata=metadata)
+
+    # sort failures
+    module_projects = {
+        # 'module_name': [
+        #                 'project_name': project_failures,
+        #                 ]
+    }
+    for module_name, failures_in_module in failures.items():
+        failures_in_module_copy = {}
+        module_project_failures = collections.OrderedDict()
+        module_projects[module_name] = module_project_failures
+        for test_name, test_dict in failures_in_module.items():
+            result = test_dict.get('result')
+            if result != "fail":
+                continue
+            failures_in_module_copy[test_name] = test_dict
+
+            for project_name in test_dict.get('project_names', []):
+                project_failures = module_project_failures.get(project_name)
+                if project_failures is None:
+                    project_failures = []
+                    module_project_failures[project_name] = project_failures
+                project_failures.append(test_dict)
+
+        failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
+
+    failures = collections.OrderedDict(sorted(failures.items()))
+    report_jobs = sorted(report_jobs, key=lambda job: (job.get('lavajob_name'), job.get('qaproject_group'), job.get('qaproject_name')))
+
+    return render(request, 'lkft-describe.html',
+                       {
+                            'aosp_info': aosp_info,
+                            'report_builds': report_builds,
+                            'report_jobs': report_jobs,
+                            'resubmitted_jobs': resubmitted_jobs,
+                            'failures':failures,
+                            'module_projects': module_projects,
+                        }
+            )
+
 @login_required
 @permission_required('lkft.admin_projects')
 def mark_kernel_changes_reported(request, branch, describe):

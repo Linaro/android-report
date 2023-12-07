@@ -135,8 +135,8 @@
         <th>Duration</th>
 </tr>
 <tr>
-    <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/~/pipelines">{{trigger_build.name}}</a></td>
-    <td align='right'><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/~/pipelines/{{trigger_build.number}}/">{{trigger_build.number}}</a></td>
+    <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/-/pipelines">{{trigger_build.name}}</a></td>
+    <td align='right'><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/-/pipelines/{{trigger_build.number}}/">{{trigger_build.number}}</a></td>
     <td>{{trigger_build.result}}</td>
     <td><p>Started at {{ trigger_build.timestamp|date:'M. d, Y, H:i'}}, <br/>{{ trigger_build.timestamp|timesince}} ago</p></td>
     <td align='right'>{{trigger_build.duration}}</td>
@@ -192,8 +192,12 @@
 <tr>
     <td>{{ forloop.counter }}</td>
     <td><a href="https://qa-reports.linaro.org/{{report_build.qa_project.group}}/">{{report_build.qa_project.group}}</a></td>
-    <td>
-        <a href="/lkft/builds?project_id={{report_build.qa_project.project_id}}">{{report_build.qa_project.name}}</a><br/>
+    <td nowrap>
+        <a href="/lkft/builds?project_id={{report_build.qa_project.project_id}}">{{report_build.qa_project.name}}
+            {% if report_build.version %}
+            ({{report_build.version}})
+            {% endif %}
+        </a><br/>
         <a href="https://qa-reports.linaro.org/{{report_build.qa_project.group}}/{{report_build.qa_project.slug}}/build/{{kernel_change.describe}}">Link To QA-REPORT</a>
     </td>
     <td align='right'>
@@ -280,7 +284,7 @@
     <td align="right">{{job.number_total}}</td>
     <td align="right">
     {% if job.modules_done != job.modules_total or job.is_cts_vts_job and job.modules_total == 0 %}
-    <p style="background-color: red">{{job.modules_done}}/{{job.modules_total}}</p>
+    <p style="color: red">{{job.modules_done}}/{{job.modules_total}}</p>
     {% else %}
     {{job.modules_done}}/{{job.modules_total}}
     {% endif %}
@@ -310,8 +314,8 @@
     <td>{{ forloop.counter }}</td>
     <td nowrap>{{job.qaproject_group}}/{{job.qaproject_name }}</td>
     <td> <a href="{{job.lavajob_url}}">{{job.lavajob_id}}</a> </td>
-    {% if job.lavajob_url %}
-    <td nowrap> <a target='_blank' href="{{job.lavajob_url}}">{{job.lavajob_name}} </a></td>
+    {% if job.lavajob_attachment_url %}
+    <td nowrap> <a target='_blank' href="{{job.lavajob_attachment_url}}">{{job.lavajob_name}} </a></td>
     {% else %}
     <td nowrap> {{job.lavajob_name}}</td>
     {% endif %}
