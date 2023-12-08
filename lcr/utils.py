@@ -38,7 +38,7 @@ def download_urllib(url, path):
             sys.stdout.write("\r %.2f%%" % per)
             sys.stdout.flush()
     try:
-        cmd_wget = "wget -c %s -O %s" % (url, path)
+        cmd_wget = "wget --progress=dot:giga -c %s -O %s" % (url, path)
         logger.debug("download command:%s" % cmd_wget)
         ret = os.system(cmd_wget)
         if ret != 0:

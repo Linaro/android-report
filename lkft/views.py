@@ -2834,7 +2834,8 @@ def get_kernel_changes_info(db_kernelchanges=[]):
     logger.info("length of kernel changes: %s" % number_kernelchanges)
     for db_kernelchange in db_kernelchanges:
         index = index +1
-        logger.info("%d/%d: Try to get info for kernel change: %s %s %s %s" % (index, number_kernelchanges, db_kernelchange.branch, db_kernelchange.describe, db_kernelchange.result, timesince(db_kernelchange.timestamp)))
+        timesince_str = timesince(db_kernelchange.timestamp).encode('ascii', 'ignore').decode('utf-8')
+        logger.info("%d/%d: Try to get info for kernel change: %s %s %s %s" % (index, number_kernelchanges, db_kernelchange.branch, db_kernelchange.describe, db_kernelchange.result, timesince_str))
         test_numbers = qa_report.TestNumbers()
         kernelchange = {}
         # if db_kernelchange.reported and db_kernelchange.result == 'ALL_COMPLETED':

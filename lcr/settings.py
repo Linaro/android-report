@@ -153,6 +153,7 @@ APPS_TOBE_ADDED = [
     'lkft',
     'lcr',
     'crispy_forms',
+    'crispy_bootstrap3',
 ]
 
 ENABLE_APP_REPORT = False ## TO BE UPDATED, to uncomment when you want to enabled the report for lcr builds

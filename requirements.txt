@@ -15,3 +15,5 @@ pyjwt[crypto]
 python3-openid
 requests-oauthlib
 django-allauth
+pytz
+crispy-bootstrap3
