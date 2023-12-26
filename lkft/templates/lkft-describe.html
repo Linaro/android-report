@@ -4,9 +4,21 @@
 {% load escapesharp %}
 {% load startswith %}
 
-{% block title %} {{kernel_change.branch}} {{kernel_change.describe}} {% endblock %}
+{% block title %}
+    {% if kernel_change %}
+        {{kernel_change.branch}} {{kernel_change.describe}}
+    {% elif aosp_info%}
+        {{aosp_info.aosp_version}}
+    {% endif %}
+{% endblock %}
 
-{% block headline %}<h1>{{kernel_change.branch}} > {{kernel_change.describe}}</h1>{% endblock %}
+{% block headline %}
+    {% if kernel_change %}
+        <h1>{{kernel_change.branch}} > {{kernel_change.describe}}</h1>
+    {% elif aosp_info%}
+        {{aosp_info.aosp_version}}
+    {% endif %}
+{% endblock %}
 
 {% block css %}
 <link rel="stylesheet" href="{% static "report/css/compatibility_result.css" %}">
@@ -33,6 +45,7 @@
       return false;
     }
 </script>
+{% if kernel_change %}
 <div class="row">
 <table class="table"><tbody><tr>
         <td style="text-align: right;">
@@ -44,7 +57,9 @@
         </td>
     </tr></tbody></table>
 </div>
+{% endif %}
 
+{% if kernel_change %}
 <div>
 <h1>Summary</h1>
 <table border="1">
@@ -123,7 +138,9 @@
 </table>
 
 </div>
+{% endif %}
 
+{% if trigger_build %}
 <div>
 <h1>Trigger Build</h1>
 <table border="1">
@@ -143,7 +160,9 @@
 </tr>
 </table>
 </div>
+{% endif %}
 
+{% if ci_builds %}
 <div>
 <h1>CI Builds</h1>
 <table border="1">
@@ -169,6 +188,7 @@
 {% endfor %}
 </table>
 </div>
+{% endif %}
 
 <div>
 <h1>QA Report Builds</h1>
@@ -249,7 +269,11 @@
 {% for job in report_jobs %}
 <tr>
     <td> {{ forloop.counter }}</td>
+    {% if module_builds %}
+    <td nowrap>{{job.qabuild_version}}</td>
+    {% else %}
     <td nowrap>{{job.qaproject_group}}/{{job.qaproject_name }}</td>
+    {% endif %}
     <td> <a href="{{job.lavajob_url}}">{{job.lavajob_id}}</a> </td>
     {% if job.lavajob_attachment_url %}
     <td nowrap> <a target='_blank' href="{{job.lavajob_attachment_url}}">{{job.lavajob_name}} </a></td>
@@ -349,29 +373,53 @@
 <tr>
     <th>Index</th>
     <th>Test</th>
-    {% for module_project_module_name, module_project_project_failures_dict in module_projects.items %}
-    {% if module_project_module_name == module_name %}
-    {% for module_project_project_name, module_project_project_failures in module_project_project_failures_dict.items %}
-        <th>{{module_project_project_name}}({{module_project_project_failures|length}})</th>
-    {% endfor %}
+    {% if  module_projects %}
+        {% for module_project_module_name, module_project_project_failures_dict in module_projects.items %}
+        {% if module_project_module_name == module_name %}
+        {% for module_project_project_name, module_project_project_failures in module_project_project_failures_dict.items %}
+            <th>{{module_project_project_name}}({{module_project_project_failures|length}})</th>
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+    {% elif module_builds %}
+        {% for module_build_module_name, module_build_build_failures_dict in module_builds.items %}
+        {% if module_build_module_name == module_name %}
+        {% for module_build_build_version, module_build_build_failures in module_build_build_failures_dict.items %}
+            <th>{{module_build_build_version}}</th>
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
     {% endif %}
-    {% endfor %}
 </tr>
 {% for testcase_name, failure in module_failures.items %}
 <tr>
     <td> {{ forloop.counter }}</td>
     <td class="testname">{{failure.test_name}}</td>
-    {% for module_project_module_name, module_project_project_failures_dict in module_projects.items %}
-    {% if module_project_module_name == module_name %}
-    {% for module_project_project_name, module_project_project_failures in module_project_project_failures_dict.items %}
-        {% if module_project_project_name in failure.project_names %}
-            <td class="testname" nowrap>True</td>
-        {% else %}
-            <td class="testname" nowrap>&nbsp;</td>
+    {% if  module_projects %}
+        {% for module_project_module_name, module_project_project_failures_dict in module_projects.items %}
+        {% if module_project_module_name == module_name %}
+        {% for module_project_project_name, module_project_project_failures in module_project_project_failures_dict.items %}
+            {% if module_project_project_name in failure.project_names %}
+                <td class="testname" nowrap>True</td>
+            {% else %}
+                <td class="testname" nowrap>&nbsp;</td>
+            {% endif %}
+        {% endfor %}
         {% endif %}
-    {% endfor %}
+        {% endfor %}
+    {% elif module_builds %}
+        {% for module_build_module_name, module_build_build_failures_dict in module_builds.items %}
+        {% if module_build_module_name == module_name %}
+        {% for module_build_build_version, module_build_build_failures in module_build_build_failures_dict.items %}
+            {% if module_build_build_version in failure.build_versions %}
+                <td class="testname" nowrap>True</td>
+            {% else %}
+                <td class="testname" nowrap>&nbsp;</td>
+            {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
     {% endif %}
-    {% endfor %}
 
 </tr>
 {% endfor %}

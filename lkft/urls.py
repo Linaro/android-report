@@ -40,4 +40,5 @@ urlpatterns = [
     url(r'^matrix/$', views.matrix, name='matrix'),
 
     url(r'^aosp/(%s)/$' % (basic_pat), views.list_aosp_versions, name='list_aosp_versions'),
+    url(r'^history/(%s)/(%s)$' % (basic_pat, basic_pat), views.project_history, name='project_history'),
 ]

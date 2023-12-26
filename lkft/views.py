@@ -377,6 +377,7 @@ def extract(result_zip_path, failed_testcases_all={}, metadata={}):
     platform = metadata.get('platform')
     qa_job_id = metadata.get('qa_job_id')
     project_name = metadata.get('project_name')
+    build_version = metadata.get('build_version')
 
     test_numbers = get_testcases_number_for_job_with_qa_job_id(qa_job_id)
     test_cases = TestCase.objects.filter(lava_nick=metadata.get('lava_nick'), job_id=metadata.get('job_id')).filter(Q(result='fail')|Q(result='ASSUMPTION_FAILURE'))
@@ -409,6 +410,8 @@ def extract(result_zip_path, failed_testcases_all={}, metadata={}):
                 failed_testcase.get('platforms').append(platform)
             if not project_name in failed_testcase.get('project_names'):
                 failed_testcase.get('project_names').append(project_name)
+            if not build_version in failed_testcase.get('build_versions'):
+                failed_testcase.get('build_versions').append(build_version)
         else:
             (test_class, test_method) = test_name.split('#')[0:2]
             failed_tests_module[test_name]= {
@@ -422,10 +425,12 @@ def extract(result_zip_path, failed_testcases_all={}, metadata={}):
                                                 'qa_job_ids': [ qa_job_id ],
                                                 'kernel_versions': [ kernel_version ],
                                                 'platforms': [ platform ],
-                                                'project_names': [ project_name ]
+                                                'project_names': [ project_name ],
+                                                'build_versions': [ build_version ],
                                             }
 
     return test_numbers
+
 
 # function to save testcase information to database for tradefed result
 def save_tradeded_results_to_database(result_file_path, job, report_job):
@@ -3367,7 +3372,6 @@ def list_describe_kernel_changes(request, branch, describe):
     for module_name, failures_in_module in failures.items():
         failures_in_module_copy = {}
         module_project_failures = collections.OrderedDict()
-        module_projects[module_name] = module_project_failures
         for test_name, test_dict in failures_in_module.items():
             result = test_dict.get('result')
             if result != "fail":
@@ -3381,6 +3385,7 @@ def list_describe_kernel_changes(request, branch, describe):
                     module_project_failures[project_name] = project_failures
                 project_failures.append(test_dict)
 
+        module_projects[module_name] = collections.OrderedDict(sorted(module_project_failures.items()))
         failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
 
     failures = collections.OrderedDict(sorted(failures.items()))
@@ -3410,7 +3415,7 @@ def list_aosp_versions(request, aosp_version):
     supported_projects = androidreportconfig.get_all_report_projects()
 
     aosp_info = {}
-    # aosp_info['branch'] = db_kernel_change.branch
+    aosp_info['aosp_version'] = aosp_version
     # aosp_info['describe'] = db_kernel_change.describe
     # aosp_info['result'] = db_kernel_change.result
     # aosp_info['trigger_name'] = db_kernel_change.trigger_name
@@ -3428,8 +3433,12 @@ def list_aosp_versions(request, aosp_version):
     # aosp_info['jobs_total'] = db_kernel_change.jobs_total
     # aosp_info['reported'] = db_kernel_change.reported
 
+    aosp_projects = []
+    for project_alias_name, project_alias in supported_projects.items():
+        project_alias_aosp_version = project_alias.get('OS')
+        if project_alias_aosp_version == aosp_version:
+            aosp_projects.append(project_alias_name)
 
-    aosp_projects = supported_aosp_version.get(aosp_version, [])
     report_builds = []
     db_report_jobs = []
     for project_alias_name in aosp_projects:
@@ -3525,8 +3534,7 @@ def list_aosp_versions(request, aosp_version):
     }
     for module_name, failures_in_module in failures.items():
         failures_in_module_copy = {}
-        module_project_failures = collections.OrderedDict()
-        module_projects[module_name] = module_project_failures
+        module_project_failures = {}
         for test_name, test_dict in failures_in_module.items():
             result = test_dict.get('result')
             if result != "fail":
@@ -3540,6 +3548,7 @@ def list_aosp_versions(request, aosp_version):
                     module_project_failures[project_name] = project_failures
                 project_failures.append(test_dict)
 
+        module_projects[module_name] = collections.OrderedDict(sorted(module_project_failures.items()))
         failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
 
     failures = collections.OrderedDict(sorted(failures.items()))
@@ -3555,6 +3564,134 @@ def list_aosp_versions(request, aosp_version):
                             'module_projects': module_projects,
                         }
             )
+
+
+@login_required
+@permission_required('lkft.admin_projects')
+def project_history(request, group, slug):
+    androidreportconfig = get_androidreportconfig_module()
+    supported_aosp_version = androidreportconfig.get_all_aosp_versions()
+    supported_projects = androidreportconfig.get_all_report_projects()
+
+    db_report_builds = ReportBuild.objects.filter(qa_project__group=group, qa_project__name=slug).order_by('-qa_build_id')[:10]
+
+    report_builds = []
+    db_report_jobs = []
+    for db_report_build in db_report_builds:
+        report_build = {}
+        report_build['qa_project'] = db_report_build.qa_project
+        report_build['started_at'] = db_report_build.started_at
+        report_build['number_passed'] = db_report_build.number_passed
+        report_build['number_failed'] = db_report_build.number_failed
+        report_build['number_assumption_failure'] = db_report_build.number_assumption_failure
+        report_build['number_ignored'] = db_report_build.number_ignored
+        report_build['number_total'] = db_report_build.number_total
+        report_build['modules_done'] = db_report_build.modules_done
+        report_build['modules_total'] = db_report_build.modules_total
+        report_build['jobs_finished'] = db_report_build.jobs_finished
+        report_build['jobs_total'] = db_report_build.jobs_total
+        report_build['qa_build_id'] = db_report_build.qa_build_id
+        report_build['status'] = db_report_build.status
+        report_build['version'] = db_report_build.version
+        if db_report_build.fetched_at and db_report_build.started_at:
+            report_build['duration'] = db_report_build.fetched_at - db_report_build.started_at
+
+        report_builds.append(report_build)
+
+        db_report_jobs_of_build = ReportJob.objects.filter(report_build=db_report_build)
+        db_report_jobs.extend(db_report_jobs_of_build)
+
+    report_jobs = []
+    resubmitted_jobs = []
+    failures = {}
+    for db_report_job in db_report_jobs:
+        report_job = {}
+        db_report_build = db_report_job.report_build
+        db_report_project = db_report_build.qa_project
+        report_job['qaproject_full_name'] = "%s/%s" % (db_report_project.group, db_report_project.name)
+        report_job['qaproject_group'] = db_report_project.group
+        report_job['qaproject_name'] = db_report_project.name
+        report_job['qaproject_url'] = qa_report_api.get_project_url_with_group_slug(db_report_project.group, db_report_project.slug)
+        report_job['qabuild_version'] = db_report_build.version
+        report_job['qajob_id'] = db_report_job.qa_job_id
+        report_job['qabuild_url'] = qa_report_api.get_build_url_with_group_slug_buildVersion(db_report_project.group,
+                                                                                             db_report_project.slug,
+                                                                                             db_report_build.version)
+        report_job['environment'] = db_report_job.environment
+
+        report_job['lavajob_id'] = qa_report_api.get_qa_job_id_with_url(db_report_job.job_url)
+        report_job['lavajob_url'] = db_report_job.job_url
+        report_job['lavajob_name'] = db_report_job.job_name
+        report_job['lavajob_attachment_url'] = db_report_job.attachment_url
+        report_job['lavajob_status'] = db_report_job.status
+        report_job['failure_msg'] = db_report_job.failure_msg
+
+        report_job['number_passed'] = db_report_job.number_passed
+        report_job['number_failed'] = db_report_job.number_failed
+        report_job['number_assumption_failure'] = db_report_job.number_assumption_failure
+        report_job['number_ignored'] = db_report_job.number_ignored
+        report_job['number_total'] = db_report_job.number_total
+        report_job['modules_done'] = db_report_job.modules_done
+        report_job['modules_total'] = db_report_job.modules_total
+        report_job['is_cts_vts_job'] = is_cts_vts_job(db_report_job.job_name)
+
+        if db_report_job.resubmitted:
+            resubmitted_jobs.append(report_job)
+            continue
+
+        report_jobs.append(report_job)
+        kernel_version = get_kver_with_pname_env(prj_name=db_report_project.name, env=report_job['environment'])
+        platform = report_job['environment'].split('_')[0]
+        metadata = {
+                'job_id': report_job['lavajob_id'],
+                'qa_job_id': report_job['qajob_id'],
+                'result_url': report_job['lavajob_attachment_url'] ,
+                'lava_nick': find_lava_config(report_job['lavajob_url'] ).get('nick'),
+                'kernel_version': kernel_version,
+                'platform': platform,
+                'project_name': db_report_project.name,
+                'build_version': db_report_build.version,
+                }
+        extract(None, failed_testcases_all=failures, metadata=metadata)
+
+    # sort failures
+    module_builds = {
+        # 'module_name': [
+        #                 'build_version': build_failures,
+        #                 ]
+    }
+    for module_name, failures_in_module in failures.items():
+        failures_in_module_copy = {}
+        module_build_failures = collections.OrderedDict()
+        module_builds[module_name] = module_build_failures
+        for test_name, test_dict in failures_in_module.items():
+            result = test_dict.get('result')
+            if result != "fail":
+                continue
+            failures_in_module_copy[test_name] = test_dict
+
+            for build_version in test_dict.get('build_versions', []):
+                build_failures = module_build_failures.get(build_version)
+                if build_failures is None:
+                    build_failures = []
+                    module_build_failures[build_version] = build_failures
+                build_failures.append(test_dict)
+
+        failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
+
+    failures = collections.OrderedDict(sorted(failures.items()))
+    report_jobs = sorted(report_jobs, key=lambda job: (job.get('lavajob_name'), job.get('qaproject_group'), job.get('qaproject_name')))
+
+    return render(request, 'lkft-describe.html',
+                       {
+                            'report_builds': report_builds,
+                            'report_jobs': report_jobs,
+                            'resubmitted_jobs': resubmitted_jobs,
+                            'failures':failures,
+                            'module_builds': module_builds,
+                        }
+            )
+
 
 @login_required
 @permission_required('lkft.admin_projects')
@@ -3808,37 +3945,59 @@ def matrix(request):
         #     "os": [],
         # }
     }
-    android_versions = []
+
+    android_os_projects_total = {}
     for branch, project_alias_names in supported_kernels.items():
-        android_os_projects = matrix_data.get(branch, None)
-        if android_os_projects is None:
-            android_os_projects = {}
-            matrix_data[branch] = android_os_projects
+        android_os_projects_branch = matrix_data.get(branch, None)
+        if android_os_projects_branch is None:
+            android_os_projects_branch = {}
+            matrix_data[branch] = android_os_projects_branch
         for project_alias_name in project_alias_names:
-            project_alias = supported_projects.get(project_alias_name)
+            project_alias = supported_projects.get(project_alias_name, None)
+            if project_alias is None:
+                continue
+
             android_version = project_alias.get("OS")
-            projects = android_os_projects.get(android_version, None)
+            projects = android_os_projects_branch.get(android_version, None)
             if projects is None:
                 projects = []
-                android_os_projects[android_version] = projects
+                android_os_projects_branch[android_version] = projects
+
+            db_report_builds = ReportBuild.objects.filter(qa_project__group=project_alias.get('group'), qa_project__name=project_alias.get('slug')).order_by('-qa_build_id')
+            project_alias['numbers'] = qa_report.TestNumbers()
+            if len(db_report_builds) > 0:
+                db_report_build = db_report_builds[0]
+                project_alias['numbers'] = qa_report.TestNumbers().addWithDatabaseRecord(db_report_build)
+            if len(db_report_builds) > 1:
+                db_report_build_previous = db_report_builds[1]
+                project_alias['numbers'].number_regressions = project_alias['numbers'].number_failed - db_report_build_previous.number_failed
+
             if not project_alias in projects:
                 projects.append(project_alias)
 
-            if not android_version in android_versions:
-                android_versions.append(android_version)
+            android_os_projects_total_projects = android_os_projects_total.get(android_version, None)
+            if android_os_projects_total_projects is None:
+                android_os_projects_total[android_version] = [project_alias_name]
+            else:
+                android_os_projects_total[android_version].append(project_alias_name)
 
 
-    android_versions = sorted(android_versions)
     for branch, android_os_projects in matrix_data.items():
-        for android_version in android_versions:
+        android_os_projects['real_projects_number'] = 0
+        for android_version in android_os_projects_total.keys():
             if android_os_projects.get(android_version) is None:
                 android_os_projects[android_version] = {}
+            else:
+                android_os_projects['real_projects_number'] = android_os_projects['real_projects_number']  + len(android_os_projects.get(android_version))
+
         matrix_data[branch] = collections.OrderedDict(sorted(android_os_projects.items()))
     matrix_data = collections.OrderedDict(sorted(matrix_data.items()))
 
+    android_os_projects_total = collections.OrderedDict(sorted(android_os_projects_total.items()))
+
     response_data = {
         'matrix_data': matrix_data,
-        'android_versions': android_versions,
+        'android_versions': android_os_projects_total,
     }
     return render(request, 'lkft-projects-matrix.html', response_data)
 ########################################

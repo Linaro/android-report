@@ -18,23 +18,41 @@
 
 <tr>
     <th>Kernel</td>
-    {% for android_version in android_versions %}
-    <th> {{android_version}} </th>
+    {% for android_version, projects in android_versions.items %}
+    <th> <a target='_blank' href="/lkft/aosp/{{android_version}}">{{android_version}}({{projects|length }})</a></th>
     {% endfor %}
 </tr>
 
 {% for branch, os_projects in matrix_data.items %}
 <tr>
     <td nowrap>
-    <a target='_blank' href="/lkft/kernel-changes/{{branch}}">{{branch}}</a>
+    <a target='_blank' href="/lkft/kernel-changes/{{branch}}">{{branch}}({{os_projects.real_projects_number}})</a>
     </td>
     {% for os, projects in os_projects.items %}
+    {% if os != "real_projects_number" %}
     <td nowrap>
     {% for project in projects %}
     {% if not forloop.first %}<br/>{% endif %}
-    <a target='_blank' href="/lkft/builds?project_slug={{project.slug}}&&project_group={{project.group}}">{{project.slug}}{% if project.environment %}({{project.environment}}){% endif %}</a>
+    <a target='_blank' href="/lkft/builds?project_slug={{project.slug}}&&project_group={{project.group}}">
+        {{project.slug}}
+        {% if project.environment %}
+            ({{project.environment}})
+        {% endif %}
+    </a>
+    <a target='_blank' href="/lkft/history/{{project.group}}/{{project.slug}}">
+        {% if project.numbers.jobs_total == 0 or project.numbers.jobs_finished != project.numbers.jobs_total  %}
+            <span style="color: red">({{project.numbers.jobs_finished}}/{{project.numbers.jobs_total}})</span>
+        {% elif project.numbers.number_regressions > 0 %}
+            <span style="color: red">({{project.numbers.number_regressions}}&nearr;)</span>
+        {% elif project.numbers.number_regressions < 0 %}
+            <span style="color: green">({{project.numbers.number_regressions}} &searr;)</span>
+        {% else %}
+            <span>({{project.numbers.number_failed}} &rarr;)</span>
+        {% endif %}
+    </a>
     {% endfor %}
     </td>
+    {% endif %}
     {% endfor %}
 </tr>
 {% endfor %}
