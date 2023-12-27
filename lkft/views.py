@@ -3577,6 +3577,7 @@ def project_history(request, group, slug):
 
     report_builds = []
     db_report_jobs = []
+    report_build_version_id_dict = {}
     for db_report_build in db_report_builds:
         report_build = {}
         report_build['qa_project'] = db_report_build.qa_project
@@ -3597,6 +3598,7 @@ def project_history(request, group, slug):
             report_build['duration'] = db_report_build.fetched_at - db_report_build.started_at
 
         report_builds.append(report_build)
+        report_build_version_id_dict[db_report_build.version] = db_report_build.qa_build_id
 
         db_report_jobs_of_build = ReportJob.objects.filter(report_build=db_report_build)
         db_report_jobs.extend(db_report_jobs_of_build)
@@ -3663,7 +3665,6 @@ def project_history(request, group, slug):
     for module_name, failures_in_module in failures.items():
         failures_in_module_copy = {}
         module_build_failures = collections.OrderedDict()
-        module_builds[module_name] = module_build_failures
         for test_name, test_dict in failures_in_module.items():
             result = test_dict.get('result')
             if result != "fail":
@@ -3677,6 +3678,7 @@ def project_history(request, group, slug):
                     module_build_failures[build_version] = build_failures
                 build_failures.append(test_dict)
 
+        module_builds[module_name] = collections.OrderedDict(sorted(module_build_failures.items(), key=lambda item: report_build_version_id_dict.get(item[0], 0), reverse=True))
         failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
 
     failures = collections.OrderedDict(sorted(failures.items()))
