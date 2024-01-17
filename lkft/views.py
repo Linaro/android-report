@@ -11,7 +11,6 @@ import collections
 import concurrent.futures
 import datetime
 import functools
-import json
 import logging
 import math
 import os
@@ -3248,6 +3247,26 @@ def list_describe_kernel_changes(request, branch, describe):
     db_ci_builds = CiBuild.objects.filter(kernel_change=db_kernel_change).exclude(name=db_kernel_change.trigger_name).order_by('name', 'number')
     db_trigger_build = CiBuild.objects.get(name=db_kernel_change.trigger_name, kernel_change=db_kernel_change)
 
+
+    db_kernelchanges = KernelChange.objects.filter(branch=branch).order_by('-trigger_number')
+    db_previous_kernelchange = None
+    db_current_kernelchange = None
+
+    for db_kernelchange in db_kernelchanges:
+        if db_current_kernelchange is not None:
+            db_previous_kernelchange = db_kernelchange
+            break
+        elif db_kernelchange.describe == describe:
+            db_current_kernelchange = db_kernelchange
+
+    current_sha_12bit = db_current_kernelchange.describe.split('-')[-1]
+    if db_previous_kernelchange:
+        previous_sha_12bit = db_previous_kernelchange.describe.split('-')[-1]
+        first_parents = qa_report.GoogleSourceApi('android.googlesource.com', None).get_first_parents_from_googlesource(current_sha_12bit, previous_sha_12bit)
+    else:
+        first_parents = None
+
+
     kernel_change = {}
     kernel_change['branch'] = db_kernel_change.branch
     kernel_change['describe'] = db_kernel_change.describe
@@ -3402,6 +3421,8 @@ def list_describe_kernel_changes(request, branch, describe):
                             'fetch_latest': fetch_latest_from_qa_report,
                             'failures':failures,
                             'module_projects': module_projects,
+                            'first_parents': first_parents,
+                            'previous_kernelchange': db_previous_kernelchange
                         }
             )
 
@@ -3569,11 +3590,16 @@ def list_aosp_versions(request, aosp_version):
 @login_required
 @permission_required('lkft.admin_projects')
 def project_history(request, group, slug):
+    try:
+        per_page = int(request.GET.get('per_page', '10'))
+    except:
+        per_page = 10
+
     androidreportconfig = get_androidreportconfig_module()
     supported_aosp_version = androidreportconfig.get_all_aosp_versions()
     supported_projects = androidreportconfig.get_all_report_projects()
 
-    db_report_builds = ReportBuild.objects.filter(qa_project__group=group, qa_project__name=slug).order_by('-qa_build_id')[:10]
+    db_report_builds = ReportBuild.objects.filter(qa_project__group=group, qa_project__name=slug).order_by('-qa_build_id')[:per_page]
 
     report_builds = []
     db_report_jobs = []
@@ -4002,6 +4028,7 @@ def matrix(request):
         'android_versions': android_os_projects_total,
     }
     return render(request, 'lkft-projects-matrix.html', response_data)
+
 ########################################
 ### Register for IRC functions
 ########################################

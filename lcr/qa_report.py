@@ -714,6 +714,49 @@ class QAReportApi(RESTFullApi):
         return datetime.datetime.fromtimestamp(timestamp_in_secs, tz=timezone.utc)
 
 
+class GoogleSourceApi(RESTFullApi):
+    def get_api_url_prefix(self, detail_url):
+        return 'https://%s/%s' % (self.domain, detail_url)
+
+    def get_json_with_url(self, full_url):
+        r = self.call_with_full_url(request_url=full_url, returnResponse=True)
+        if not r.ok and r.status_code == 404:
+            raise UrlNotFoundException(r, url=full_url)
+        elif not r.ok or r.status_code != 200:
+            raise Exception(r.url, r.reason, r.status_code)
+
+        json_str = r.text.replace(")]}'", "")
+        json_data = json.loads(json_str)
+        return json_data
+
+    ### how to identify the following two commits:
+    ###    https://android.googlesource.com/kernel/common/+/8ef1b8364451459d26aa6d6cf395d424eda2d659
+    ###    https://android.googlesource.com/kernel/common/+/30e51dea80fc9d70b34db60a6a1172b470c7f95b
+    def get_first_parents_from_googlesource(self, current_sha_12bit, previous_sha_12bit):
+        first_parents = []
+        googlesource_domain = "android.googlesource.com"
+        googlesource_log_url = f"https://{googlesource_domain}/kernel/common/+log/{current_sha_12bit}?format=JSON"
+        commits_json = self.get_json_with_url(googlesource_log_url)
+        for commit in commits_json.get("log"):
+            commit['subject'] = commit.get('message').split("\n")[0]
+            first_parents.append(commit)
+            if commit.get("commit").startswith(previous_sha_12bit):
+                return first_parents
+
+            if len(commit.get('parents')) > 1:
+                first_parents.extend(self.get_first_parents_from_googlesource(commit.get("parents")[0][:12], previous_sha_12bit))
+                # no need to check the remain commits anymore
+                break
+
+        if first_parents[-1].get("commit").startswith(previous_sha_12bit):
+            return first_parents
+
+        if len(first_parents) > 0:
+            first_parents.extend(self.get_first_parents_from_googlesource(first_parents[-1].get("parents")[0][:12], previous_sha_12bit))
+
+        return first_parents
+
+
 class TestNumbers():
     number_passed = 0
     number_failed = 0
