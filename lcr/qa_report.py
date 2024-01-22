@@ -736,23 +736,28 @@ class GoogleSourceApi(RESTFullApi):
         first_parents = []
         googlesource_domain = "android.googlesource.com"
         googlesource_log_url = f"https://{googlesource_domain}/kernel/common/+log/{current_sha_12bit}?format=JSON"
-        commits_json = self.get_json_with_url(googlesource_log_url)
-        for commit in commits_json.get("log"):
-            commit['subject'] = commit.get('message').split("\n")[0]
-            first_parents.append(commit)
-            if commit.get("commit").startswith(previous_sha_12bit):
+        try:
+            commits_json = self.get_json_with_url(googlesource_log_url)
+            for commit in commits_json.get("log"):
+                commit['subject'] = commit.get('message').split("\n")[0]
+                first_parents.append(commit)
+                if commit.get("commit").startswith(previous_sha_12bit):
+                    return first_parents
+
+                if len(commit.get('parents')) > 1:
+                    first_parents.extend(self.get_first_parents_from_googlesource(commit.get("parents")[0][:12], previous_sha_12bit))
+                    # no need to check the remain commits anymore
+                    break
+
+            if first_parents[-1].get("commit").startswith(previous_sha_12bit):
                 return first_parents
 
-            if len(commit.get('parents')) > 1:
-                first_parents.extend(self.get_first_parents_from_googlesource(commit.get("parents")[0][:12], previous_sha_12bit))
-                # no need to check the remain commits anymore
-                break
+            if len(first_parents) > 0:
+                first_parents.extend(self.get_first_parents_from_googlesource(first_parents[-1].get("parents")[0][:12], previous_sha_12bit))
 
-        if first_parents[-1].get("commit").startswith(previous_sha_12bit):
-            return first_parents
-
-        if len(first_parents) > 0:
-            first_parents.extend(self.get_first_parents_from_googlesource(first_parents[-1].get("parents")[0][:12], previous_sha_12bit))
+        except UrlNotFoundException:
+            logger.info(f"URL {googlesource_log_url} does not exist" )
+            pass
 
         return first_parents
 
