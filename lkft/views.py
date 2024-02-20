@@ -2414,14 +2414,18 @@ class JobResubmissionForm(forms.Form):
     lava_job_name = forms.CharField(label='Oririnal LAVA Job Name', widget=forms.TextInput(attrs={'size': 80}))
     qa_project_full_name = forms.CharField(label='Project Full Name', widget=forms.TextInput(attrs={'size': 80}))
     # project_id = forms.CharField(label='Project Id.')
+
+    qa_build_branch = forms.CharField(label='Build Branch', widget=forms.TextInput(attrs={'size': 80}))
     qa_build_version = forms.CharField(label='Build Version', widget=forms.TextInput(attrs={'size': 80}))
     # build_id = forms.CharField(label='Build Id.')
     qa_env = forms.CharField(label='Environment', widget=forms.TextInput(attrs={'size': 80}))
     qa_job_id = forms.CharField(label='QAReport Job Id.')
     no_update = forms.BooleanField(label="No Update On Job Definition", required=False)
+    bisect = forms.BooleanField(label="Bisect First Parents", required=False)
     qa_job_original_url = forms.CharField(label='Original QAReport Job URL', widget=forms.TextInput(attrs={'size': 80}))
     lava_job_original_url = forms.CharField(label='Original LAVA Job URL', widget=forms.TextInput(attrs={'size': 80}))
     resubmission_reason = forms.CharField(label='Reason For Resubmission', required=True, widget=forms.Textarea(attrs={'cols': 80, 'rows': 1}))
+    first_parents = forms.MultipleChoiceField(label='First Parents', widget=forms.CheckboxSelectMultiple, choices=[], validators=[], required=False)
     definition = forms.CharField(label='Definition', widget=forms.Textarea(attrs={'cols': 80, 'rows': 30}))
 
 @login_required
@@ -2439,8 +2443,10 @@ def resubmit_job_manual(request, qa_job_id):
 
     if request.method == 'GET':
         no_update = request.GET.get('no_update', "true").lower() == 'true'
+        bisect = request.GET.get('bisect', "false").lower() == 'true'
     else:
-        no_update = request.POST.get('no_update', "true").lower() == 'true'
+        no_update = request.POST.get('no_update', "").lower() == 'on'
+        bisect = request.POST.get('bisect', "").lower() == 'on'
 
     results = []
     qa_job = qa_report_api.get_job_with_id(qa_job_id)
@@ -2458,17 +2464,57 @@ def resubmit_job_manual(request, qa_job_id):
         qa_build = qa_report_api.get_build_with_url(qa_build_url)
         qa_build_version = qa_build.get('version')
 
+        db_report_build = get_build_from_database_or_qareport(qa_build.get('id'))[1]
+        db_kernel_change = db_report_build.kernel_change
+        kernel_branch = db_kernel_change.branch
+        qa_build_branch = kernel_branch
+
         form_initial = {}
         form_initial['lava_job_name'] = qa_job.get('name')
-        form_initial['qa_project_full_name'] = qa_project_full_name
+        form_initial['qa_build_branch'] = qa_build_branch
         form_initial['qa_build_version'] = qa_build_version
         form_initial['qa_env'] = qa_job_environment
         form_initial['qa_job_id'] = qa_job_id
         form_initial['no_update'] = no_update
+        form_initial['bisect'] = bisect
         form_initial['qa_job_original_url'] = qa_job_original_url
         form_initial['lava_job_original_url'] = qa_job.get('external_url')
         form_initial['resubmission_reason'] = ""
         form_initial['definition'] = yaml_safe_dump(job_definition)
+        if bisect:
+            form_initial['qa_project_full_name'] = f"~yongqin.liu/{kernel_branch}"
+
+            # qa_build_metadata = qa_report_api.get_build_meta_with_url(qa_build.get("metadata"))
+            # db_kernel_change = KernelChange.objects.get(branch=qa_build_metadata.get("git_branch"), describe=qa_build_version)
+            db_kernelchanges = KernelChange.objects.filter(branch=kernel_branch).order_by('-trigger_number')
+            db_previous_kernelchange = None
+            db_current_kernelchange = None
+
+            for db_kernelchange in db_kernelchanges:
+                if db_current_kernelchange is not None:
+                    db_previous_kernelchange = db_kernelchange
+                    break
+                elif db_kernelchange.describe == qa_build_version:
+                    db_current_kernelchange = db_kernelchange
+
+            current_sha_12bit = db_current_kernelchange.describe.split('-')[-1]
+            if db_previous_kernelchange:
+                previous_sha_12bit = db_previous_kernelchange.describe.split('-')[-1]
+                first_parents = qa_report.GoogleSourceApi('android.googlesource.com', None).get_first_parents_from_googlesource(current_sha_12bit, previous_sha_12bit)
+                form_initial['first_parents'] = [ parent.get("commit") for parent in first_parents[1:-1] ]
+            else:
+                first_parents = []
+                form_initial['first_parents'] = []
+
+            if len(first_parents) > 1:
+                form_initial['resubmission_reason'] = f"Bisect {qa_job.get('name')} between {first_parents[0].get('commit')[:12]} and {first_parents[-1].get('commit')[:12]}"
+            else:
+                form_initial['resubmission_reason'] = f"Bisect {qa_job.get('name')} for {qa_build_version}"
+        else:
+            form_initial['qa_project_full_name'] = qa_project_full_name
+            form_initial['resubmission_reason'] = ""
+            first_parents = []
+
 
         form = JobResubmissionForm(initial=form_initial)
         form.fields['lava_job_name'].widget.attrs['readonly'] = "readonly"
@@ -2481,6 +2527,9 @@ def resubmit_job_manual(request, qa_job_id):
         form.fields['no_update'].widget.attrs['readonly'] = "readonly"
         if no_update:
             form.fields['definition'].widget.attrs['readonly'] = "readonly"
+        form.fields['bisect'].widget.attrs['readonly'] = "readonly"
+        if bisect:
+            form.fields['first_parents'].choices = [ (parent.get("commit"), parent.get("commit")[:12] + " (\"" + parent.get("subject") + "\")") for parent in first_parents ]
 
         return render(request, 'lkft-job-resubmit-manual.html',
                 {
@@ -2488,7 +2537,30 @@ def resubmit_job_manual(request, qa_job_id):
                     "qa_job_id": qa_job_id,
                 })
     else: #for POST method
+        first_parents = []
         form = JobResubmissionForm(request.POST)
+        if bisect:
+            # qa_build_branch = form.fields['qa_build_branch'].to_python()
+            # qa_build_version = form.fields['qa_build_version'].to_python()
+            qa_build_branch = request.POST.get('qa_build_branch')
+            qa_build_version = request.POST.get('qa_build_version')
+            db_kernelchanges = KernelChange.objects.filter(branch=qa_build_branch).order_by('-trigger_number')
+            db_previous_kernelchange = None
+            db_current_kernelchange = None
+
+            for db_kernelchange in db_kernelchanges:
+                if db_current_kernelchange is not None:
+                    db_previous_kernelchange = db_kernelchange
+                    break
+                elif db_kernelchange.describe == qa_build_version:
+                    db_current_kernelchange = db_kernelchange
+
+            current_sha_12bit = db_current_kernelchange.describe.split('-')[-1]
+            if db_previous_kernelchange:
+                previous_sha_12bit = db_previous_kernelchange.describe.split('-')[-1]
+                first_parents = qa_report.GoogleSourceApi('android.googlesource.com', None).get_first_parents_from_googlesource(current_sha_12bit, previous_sha_12bit)
+
+            form.fields['first_parents'].choices = [ (parent.get("commit"), parent.get("commit")[:12] + " (\"" + parent.get("subject") + "\")") for parent in first_parents ]
         if form.is_valid():
             cd = form.cleaned_data
             results = []
@@ -2498,11 +2570,14 @@ def resubmit_job_manual(request, qa_job_id):
             qa_team = qa_project_full_name.split('/')[0]
             qa_project = qa_project_full_name.split('/')[1]
             qa_build = cd['qa_build_version']
-            job_definition = cd['definition']
+            job_definition_str = cd['definition']
+
             qa_env = cd['qa_env']
             resubmission_reason = cd['resubmission_reason']
             no_update = cd['no_update']
+            bisect = cd['bisect']
             qa_job_id = cd['qa_job_id']
+            lava_job_name = cd['lava_job_name']
             lava_job_original_url = cd['lava_job_original_url']
             qa_job_original_url = cd['qa_job_original_url']
 
@@ -2553,8 +2628,103 @@ def resubmit_job_manual(request, qa_job_id):
                 else:
                     qa_job_new = None
                     error_msg = 'Reason: %s<br/>Status Code: %s<br/>Url: %s' % (res.reason, res.status_code, res.url)
+
+                results.append({
+                                    'qa_job_url': qa_job_original_url,
+                                    'old': qa_job,
+                                    'new': qa_job_new,
+                                    'error_msg': error_msg,
+                                })
+            elif bisect:
+                def bisect_job_definition(original_definition, first_parent, first_parent_index):
+                    job_definition_yaml = yaml.safe_load(original_definition)
+                    job_definition_yaml['job_name'] = job_definition_yaml['job_name']  + f"-{first_parent_index:04d}-{first_parent[:12]}"
+                    job_definition_yaml['priority'] = "high"
+                    if job_definition_yaml.get('secrets') is None or job_definition_yaml.get('secrets').get('TUXSUITE_TOKEN') is None:
+                        job_definition_yaml['secrets']['TUXSUITE_TOKEN'] = 'TUXSUITE_TOKEN'
+                    action_deploy_download = job_definition_yaml['actions'][0]
+                    action_deploy_download_timeout = action_deploy_download.get('deploy').get('timeout').get('minutes')
+                    action_deploy_download_postprocess = action_deploy_download.get('deploy').pop('postprocess')
+                    # postprocess:
+                    #   docker:
+                    #     image: linaro/lava-android-postprocess:bulleye-2023.09.14-01
+                    #     local: true
+                    #     steps:
+                    #     - linaro-lkft-android.sh -g -k http://lkft-cache.lkftlab/api/v1/fetch?url=https://storage.tuxsuite.com/public/linaro/lkft-android/oebuilds/2bzcoMIvjDwcGxRLVqUzVenhuqV/Image.gz
+                    #       -v http://lkft-cache.lkftlab/api/v1/fetch?url=https://storage.tuxsuite.com/public/linaro/lkft-android/oebuilds/2bzcofjSc3NvMdk6MOpL6sFyhPa
+                    #       -c lkft-db845c-aosp-master-mainline-gki
+                    postprocess_docker_image = action_deploy_download_postprocess['docker']['image']
+                    postprocess_command_line = action_deploy_download_postprocess['docker']['steps'][0]
+                    postprocess_build_config = postprocess_command_line.split(' ')[-1]
+
+                    SRCREV_kernel = first_parent
+                    # build_config = 'lkft-db845c-aosp-master-android14-6.1-lts-gki-1636'
+                    action_test_generate_android_images_str = f'''
+                        test:
+                            definitions:
+                            - from: inline
+                              name: generate-android-images
+                              path: generate-android-images.yaml
+                              repository:
+                                metadata:
+                                  description: generate-android-images
+                                  format: Lava-Test Test Definition 1.0
+                                  name: generate-android-images
+                                run:
+                                  steps:
+                                  - lava-test-case "git-user-email" --shell git config --global user.email lkft@linaro.org
+                                  - lava-test-case "git-user-name" --shell git config --global user.name lkft-bot
+                                  - lava-test-case "git-color-ui" --shell git config --global color.ui false
+                                  - lava-test-case "reinstall-tuxsuite" --shell pip3 install --force-reinstall tuxsuite
+                                  - lava-test-case "linaro-lkft-android" --shell SRCREV_kernel={SRCREV_kernel} /usr/bin/linaro-lkft-android.sh -g -c {postprocess_build_config}
+                            docker:
+                              image: {postprocess_docker_image}
+                              local: true
+                            timeout:
+                              minutes: {action_deploy_download_timeout}
+                    '''
+                    action_test_generate_android_images_yaml = yaml.safe_load(action_test_generate_android_images_str)
+                    job_definition_yaml['actions'].insert(1, action_test_generate_android_images_yaml)
+                    return yaml_safe_dump(job_definition_yaml)
+
+                res = qa_report_api.create_build(qa_team, qa_project, qa_build)
+                if not res.ok:
+                    error_msg = 'Failed to create the Build.Probably the squad project does not exist<br/>Reason: %s<br/>Status Code: %s<br/>Url: %s<br/>' % (res.reason, res.status_code, res.url)
+                    results.append({
+                                'qa_job_url': qa_job_original_url,
+                                'old': qa_job,
+                                'new': None,
+                                'error_msg': error_msg,
+                            })
+                else:
+                    first_parents_selected = cd["first_parents"]
+                    for first_parent_selected in first_parents_selected:
+                        try:
+                            first_parent_select_index = [ parent.get("commit") for parent in first_parents ].index(first_parent_selected)
+                        except ValueError:
+                            first_parent_select_index = 0
+                        bisect_job_definition_str = bisect_job_definition(job_definition_str, first_parent_selected, first_parent_select_index)
+                        res = qa_report_api.submitjob_with_definition(qa_team, qa_project, qa_build, qa_env, lava_job_original_url, bisect_job_definition_str)
+                        if res.ok:
+                            qa_job_new = qa_report_api.get_job_with_id(res.text)
+                            error_msg = None
+                            current_comit = first_parents[0].get("commit")
+                            previous_commit = first_parents[-1].get("commit")
+                            resubmission_reason = f"Bisect {lava_job_name} between {current_comit[:12]} and {previous_commit[:12]} with {first_parent_selected[:12]}"
+                            JobMeta.objects.get_or_create(qa_job_id=int(qa_job_new.get("id")), kind="ManualResubmit", resubmission_reason=resubmission_reason)
+                        else:
+                            qa_job_new = None
+                            error_msg = 'Reason: %s<br/>Status Code: %s<br/>Url: %s<br/>First Parent: %s' % (res.reason, res.status_code, res.url, first_parent)
+
+                        results.append({
+                                    'qa_job_url': qa_job_original_url,
+                                    'old': qa_job,
+                                    'new': qa_job_new,
+                                    'error_msg': error_msg,
+                                })
+
             else:
-                res = qa_report_api.submitjob_with_definition(qa_team, qa_project, qa_build, qa_env, lava_job_original_url, job_definition)
+                res = qa_report_api.submitjob_with_definition(qa_team, qa_project, qa_build, qa_env, lava_job_original_url, job_definition_str)
                 if res.ok:
                     qa_job_new = qa_report_api.get_job_with_id(res.text)
                     error_msg = None
@@ -2562,12 +2732,13 @@ def resubmit_job_manual(request, qa_job_id):
                 else:
                     qa_job_new = None
                     error_msg = 'Reason: %s<br/>Status Code: %s<br/>Url: %s' % (res.reason, res.status_code, res.url)
-            results.append({
-                                'qa_job_url': qa_job_original_url,
-                                'old': qa_job,
-                                'new': qa_job_new,
-                                'error_msg': error_msg,
-                            })
+
+                results.append({
+                                    'qa_job_url': qa_job_original_url,
+                                    'old': qa_job,
+                                    'new': qa_job_new,
+                                    'error_msg': error_msg,
+                                })
 
             return render(request, 'lkft-job-resubmit.html',
                         {
@@ -3432,7 +3603,6 @@ def list_describe_kernel_changes(request, branch, describe):
 @permission_required('lkft.admin_projects')
 def list_aosp_versions(request, aosp_version):
     androidreportconfig = get_androidreportconfig_module()
-    supported_aosp_version = androidreportconfig.get_all_aosp_versions()
     supported_projects = androidreportconfig.get_all_report_projects()
 
     aosp_info = {}
@@ -3596,7 +3766,6 @@ def project_history(request, group, slug):
         per_page = 10
 
     androidreportconfig = get_androidreportconfig_module()
-    supported_aosp_version = androidreportconfig.get_all_aosp_versions()
     supported_projects = androidreportconfig.get_all_report_projects()
 
     db_report_builds = ReportBuild.objects.filter(qa_project__group=group, qa_project__name=slug).order_by('-qa_build_id')[:per_page]

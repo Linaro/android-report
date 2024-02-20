@@ -299,11 +299,13 @@
     <td>&nbsp;</td>
     {% else %}
     <td>
-        <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qajob_id}}?&no_update=true">Resubmit</a>
+        <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qajob_id}}?no_update=true">Resubmit</a>
         &nbsp;/&nbsp;
         <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qajob_id}}?no_update=false">Manual</a>
         &nbsp;/&nbsp;
         <a target='_blank' href="/lkft/fetch-job/{{job.qajob_id}}">Fetch</a>
+        &nbsp;/&nbsp;
+        <a target='_blank' href="/lkft/resubmit-job-manual/{{job.qajob_id}}?no_update=false&bisect=true">Bisect</a>
     </td>
     {% endif %}
     {% if job.failure_msg %}
