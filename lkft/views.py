@@ -3310,7 +3310,6 @@ def list_branch_kernel_changes(request, branch):
 def get_androidreportconfig_module():
     module_name = "androidreportconfig"
     androidreportconfig_url = "https://gitlab.com/Linaro/lkft/users/yongqin.liu/squad-report/-/raw/master/squad_report/androidreportconfig.py"
-
     androidreportconfig_src = download_url_content(androidreportconfig_url)
     androidreportconfig_obj = compile(androidreportconfig_src, module_name, 'exec')
     import imp
@@ -3331,30 +3330,33 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
     supported_kernels = androidreportconfig.get_all_report_kernels()
     supported_projects = androidreportconfig.get_all_report_projects()
     supported_linux_versions = androidreportconfig.get_all_kerver_reports()
+    branc_categories = androidreportconfig.get_branch_categories_pair()
 
     kernelchange_branch_supported = False
     kernelchange_described_found = False
     qareport_builds = []
-    for project_alias_name in supported_kernels.get(branch, []):
-        project_alias = supported_projects.get(project_alias_name, None)
-        if project_alias.get("project_id", None):
-            squad_project = qa_report_api.get_project(project_alias.get("project_id"))
-        else:
-            project_full_name = qa_report_api.get_project_full_name_with_group_and_slug(project_alias.get("group"), project_alias.get('slug'))
-            squad_project = qa_report_api.get_project_with_name(project_full_name)
+    categories = branc_categories.get(branch, [branch])
+    for category in categories:
+        for project_alias_name in supported_kernels.get(category, []):
+            project_alias = supported_projects.get(project_alias_name, None)
+            if project_alias.get("project_id", None):
+                squad_project = qa_report_api.get_project(project_alias.get("project_id"))
+            else:
+                project_full_name = qa_report_api.get_project_full_name_with_group_and_slug(project_alias.get("group"), project_alias.get('slug'))
+                squad_project = qa_report_api.get_project_with_name(project_full_name)
 
-        if squad_project is None:
-            continue
-        kernelchange_branch_supported = True
-        cache_qaproject_to_database(squad_project)
-        squad_project, db_reportproject = get_project_from_database_or_qareport(squad_project.get('id'), force_fetch_from_qareport=fetch_latest_from_qa_report)
+            if squad_project is None:
+                continue
+            kernelchange_branch_supported = True
+            cache_qaproject_to_database(squad_project)
+            squad_project, db_reportproject = get_project_from_database_or_qareport(squad_project.get('id'), force_fetch_from_qareport=fetch_latest_from_qa_report)
 
-        qareport_build = qa_report_api.get_build_with_version(describe, squad_project.get('id'))
-        if qareport_build is None:
-            continue
-        kernelchange_described_found = True
-        get_build_info(db_reportproject, qareport_build, fetch_latest_from_qa_report=fetch_latest_from_qa_report)
-        qareport_builds.append(qareport_build)
+            qareport_build = qa_report_api.get_build_with_version(describe, squad_project.get('id'))
+            if qareport_build is None:
+                continue
+            kernelchange_described_found = True
+            get_build_info(db_reportproject, qareport_build, fetch_latest_from_qa_report=fetch_latest_from_qa_report)
+            qareport_builds.append(qareport_build)
 
 
     if not kernelchange_described_found:
