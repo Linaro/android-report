@@ -299,7 +299,11 @@ def download_attachments_save_result(jobs=[], fetch_latest=False):
             if not os.path.exists(result_file_path):
                 (temp_fd, temp_path) = tempfile.mkstemp(suffix='.tar.xz', text=False)
                 logger.info("Start downloading result file for job %s %s: %s" % (job_url, job.get('name'), temp_path))
-                ret_err = download_urllib(attachment_url, temp_path)
+                qa_report_header = None
+                qa_report_token = qa_report_def.get("token", None)
+                if qa_report_token is not None and len(qa_report_token) > 0:
+                    qa_report_header = f"Auth-Token:{qa_report_token}"
+                ret_err = download_urllib(attachment_url, temp_path, header=qa_report_header)
                 if ret_err:
                     logger.info("There is a problem with the size of the file: %s" % attachment_url)
                     continue

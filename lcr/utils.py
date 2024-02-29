@@ -15,7 +15,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-def download_urllib(url, path):
+def download_urllib(url, path, header=None):
     check_dict = {'file_not_exist': False}
     def Schedule(a,b,c):
         '''
@@ -38,9 +38,12 @@ def download_urllib(url, path):
             sys.stdout.write("\r %.2f%%" % per)
             sys.stdout.flush()
     try:
-        cmd_wget = "wget --progress=dot:giga -c %s -O %s" % (url, path)
-        logger.debug("download command:%s" % cmd_wget)
-        ret = os.system(cmd_wget)
+        if header is None or len(header) == 0:
+            cmd_download = f"curl -L {url} -o {path}"
+        else:
+            cmd_download = f"curl -L --header {header} {url} -o {path}"
+        #logger.debug("download command:%s" % cmd_download)
+        ret = os.system(cmd_download)
         if ret != 0:
             logger.info("Failed to download file: %s" % url)
         #urlretrieve(url, path, Schedule)
