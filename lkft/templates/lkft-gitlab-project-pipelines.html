@@ -55,11 +55,7 @@
         <td>{{ pipeline.updated_at_datetime|date:'M. d, Y, H:i'}}, <br/>{{ pipeline.updated_at_datetime|timesince}} ago</td>
         <td nowrap><a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/">{{pipeline.branch}}</a></td>
         <td>
-        {% if pipeline.artifacts_url %}
-        <a target='_blank' href="{{pipeline.artifacts_url}}">{{pipeline.kernel_describe}}</a>
-        {% else %}
-        {{pipeline.kernel_describe}}
-        {% endif %}
+        <a target='_blank' href="https://android.googlesource.com/kernel/common/+log/{{pipeline.kernel_commit}}">{{pipeline.kernel_describe}}</a>
         </td>
         <td align="right">
             <a target='_blank' href="/lkft/kernel-changes/{{pipeline.branch}}/{{pipeline.kernel_describe}}">

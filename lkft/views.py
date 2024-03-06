@@ -4121,6 +4121,14 @@ def gitlab_project_pipelines(request, project_id):
 
             pipeline['kernel_describe'] = kernel_describe
 
+            if variables_dict.get('KERNEL_COMMIT') is not None:
+                kernel_commit = variables_dict.get('KERNEL_COMMIT')
+            elif variables_dict.get('SRCREV_kernel') is not None:
+                kernel_commit = variables_dict.get('SRCREV_kernel')
+            else:
+                kernel_commit = "Unknown"
+            pipeline['kernel_commit'] = kernel_commit
+
             fetch_data_for_describe_kernelchange(branch=pipeline['branch'], describe=kernel_describe, fetch_latest_from_qa_report=fetch_latest)
             try:
                 db_kernel_change = KernelChange.objects.get(branch=pipeline['branch'], describe=kernel_describe)
