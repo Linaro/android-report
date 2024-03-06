@@ -2640,12 +2640,14 @@ def resubmit_job_manual(request, qa_job_id):
                                     'error_msg': error_msg,
                                 })
             elif bisect:
-                def bisect_job_definition(original_definition, first_parent, first_parent_index):
+                def bisect_job_definition(original_definition, first_parent, first_parent_index, qa_team, qa_project):
                     job_definition_yaml = yaml.safe_load(original_definition)
                     job_definition_yaml['job_name'] = job_definition_yaml['job_name']  + f"-{first_parent_index:04d}-{first_parent[:12]}"
-                    job_definition_yaml['priority'] = "high"
+                    job_definition_yaml['priority'] = "60"
                     if job_definition_yaml.get('secrets') is None or job_definition_yaml.get('secrets').get('TUXSUITE_TOKEN') is None:
                         job_definition_yaml['secrets']['TUXSUITE_TOKEN'] = 'TUXSUITE_TOKEN'
+                    if job_definition_yaml.get('secrets') is None or job_definition_yaml.get('secrets').get('SQUAD_ARCHIVE_SUBMIT_TOKEN') is None:
+                        job_definition_yaml['secrets']['SQUAD_ARCHIVE_SUBMIT_TOKEN'] = 'SQUAD_ARCHIVE_SUBMIT_TOKEN'
                     action_deploy_download = job_definition_yaml['actions'][0]
                     action_deploy_download_timeout = action_deploy_download.get('deploy').get('timeout').get('minutes')
                     action_deploy_download_postprocess = action_deploy_download.get('deploy').pop('postprocess')
@@ -2689,6 +2691,23 @@ def resubmit_job_manual(request, qa_job_id):
                     '''
                     action_test_generate_android_images_yaml = yaml.safe_load(action_test_generate_android_images_str)
                     job_definition_yaml['actions'].insert(1, action_test_generate_android_images_yaml)
+                    for action in job_definition_yaml['actions']:
+                        if action.get('test', None) is None:
+                            continue
+                        test_definitions = action["test"].get("definitions", None)
+                        if test_definitions is None:
+                            continue
+                        for test_definition in test_definitions:
+                            if test_definition.get("name").find("cts") < 0 and test_definition.get("name").find("vts") < 0 :
+                                continue
+                            params = test_definition.get('params')
+                            if params.get("SQUAD_UPLOAD_URL"):
+                                # https://qa-reports.linaro.org/api/submit/android-lkft/6.6-gki-android15-aosp-master-db845c/6.6.17-afe0324feb92/dragonboard-845c
+                                squad_urls_array = params["SQUAD_UPLOAD_URL"].split("/")
+                                squad_urls_array[-3] = qa_project
+                                squad_urls_array[-4] = qa_team
+                                params["SQUAD_UPLOAD_URL"] = "/".join(squad_urls_array)
+
                     return yaml_safe_dump(job_definition_yaml)
 
                 res = qa_report_api.create_build(qa_team, qa_project, qa_build)
@@ -2707,7 +2726,7 @@ def resubmit_job_manual(request, qa_job_id):
                             first_parent_select_index = [ parent.get("commit") for parent in first_parents ].index(first_parent_selected)
                         except ValueError:
                             first_parent_select_index = 0
-                        bisect_job_definition_str = bisect_job_definition(job_definition_str, first_parent_selected, first_parent_select_index)
+                        bisect_job_definition_str = bisect_job_definition(job_definition_str, first_parent_selected, first_parent_select_index, qa_team, qa_project)
                         res = qa_report_api.submitjob_with_definition(qa_team, qa_project, qa_build, qa_env, lava_job_original_url, bisect_job_definition_str)
                         if res.ok:
                             qa_job_new = qa_report_api.get_job_with_id(res.text)
