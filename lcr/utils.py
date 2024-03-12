@@ -41,7 +41,7 @@ def download_urllib(url, path, header=None):
         if header is None or len(header) == 0:
             cmd_download = f"curl -L {url} -o {path}"
         else:
-            cmd_download = f"curl -L --header {header} {url} -o {path}"
+            cmd_download = f"curl -L --header '{header}' {url} -o {path}"
         #logger.debug("download command:%s" % cmd_download)
         ret = os.system(cmd_download)
         if ret != 0:
