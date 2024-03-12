@@ -307,7 +307,8 @@ class LAVAApi(RESTFullApi):
         return self.call_with_api_url(api_url=api_url)
 
     def get_job_results(self, job_id=None, lava_config=None):
-        url_result_yaml = "https://%s/results/%s/yaml?user=%s&token=%s" % (self.domain, job_id, self.username, self.api_token)
+        #url_result_yaml = "https://%s/results/%s/yaml?user=%s&token=%s" % (self.domain, job_id, self.username, self.api_token)
+        url_result_yaml = "https://%s/api/v0.2/jobs/%s/yaml/" % (self.domain, job_id)
         r = self.call_with_full_url(request_url=url_result_yaml, returnResponse=True)
         if not r.ok and r.status_code == 404:
             raise UrlNotFoundException(r, url=url_result_yaml)

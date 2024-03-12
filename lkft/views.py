@@ -387,6 +387,9 @@ def extract(result_zip_path, failed_testcases_all={}, metadata={}):
     for test_case in test_cases:
         test_name = test_case.name
         test_suite = test_case.testsuite
+        if test_suite is None:
+            # for cases like boot, boottime, benchmark jobs
+            continue
 
         abi = test_suite.abi
         module_name = test_suite.name
@@ -3351,17 +3354,21 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
 
     androidreportconfig = get_androidreportconfig_module()
     supported_kernels = androidreportconfig.get_all_report_kernels()
+    supported_kernels_boottime = androidreportconfig.get_all_boottime_report_kernels()
     supported_projects = androidreportconfig.get_all_report_projects()
+    supported_projects_boottime = androidreportconfig.get_all_boottime_report_projects()
     supported_linux_versions = androidreportconfig.get_all_kerver_reports()
-    branc_categories = androidreportconfig.get_branch_categories_pair()
+    branch_categories = androidreportconfig.get_branch_categories_pair()
 
+    all_supported_kernels = {**supported_kernels, **supported_kernels_boottime }
+    all_supported_projects = {**supported_projects, **supported_projects_boottime }
     kernelchange_branch_supported = False
     kernelchange_described_found = False
     qareport_builds = []
-    categories = branc_categories.get(branch, [branch])
+    categories = branch_categories.get(branch, [branch])
     for category in categories:
-        for project_alias_name in supported_kernels.get(category, []):
-            project_alias = supported_projects.get(project_alias_name, None)
+        for project_alias_name in all_supported_kernels.get(category, []):
+            project_alias = all_supported_projects.get(project_alias_name, None)
             if project_alias.get("project_id", None):
                 squad_project = qa_report_api.get_project(project_alias.get("project_id"))
             else:
