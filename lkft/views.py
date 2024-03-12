@@ -3365,7 +3365,7 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
     kernelchange_branch_supported = False
     kernelchange_described_found = False
     qareport_builds = []
-    categories = branch_categories.get(branch, [branch])
+    categories = branch_categories.get(branch, [branch, f'{branch}-boottime'])
     for category in categories:
         for project_alias_name in all_supported_kernels.get(category, []):
             project_alias = all_supported_projects.get(project_alias_name, None)
