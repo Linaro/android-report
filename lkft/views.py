@@ -489,7 +489,9 @@ def save_tradeded_results_to_database(result_file_path, job, report_job):
                             test_name = '%s#%s' % (test_class_name, test_name)
                         else:
                             test_name = '%s#%s#%s' % (test_class_name, test_name, abi)
-
+                        # workaround for VtsHalAudioV7_0TargetTest module
+                        # which has test case names longer than 320
+                        test_name = test_name[:320]
                         test_result = test_case.get('result')
                         #result is one of: 'pass', 'fail', 'IGNORED', ASSUMPTION_FAILURE'
 
