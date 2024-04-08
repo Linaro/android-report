@@ -432,7 +432,7 @@
         {% if module_project_module_name == module_name %}
         {% for module_project_project_name, module_project_project_failures in module_project_project_failures_dict.items %}
             {% if module_project_project_name in failure.project_names %}
-                <td class="testname" nowrap>True</td>
+                <td class="testname" nowrap>failed</td>
             {% else %}
                 <td class="testname" nowrap>&nbsp;</td>
             {% endif %}
@@ -444,7 +444,7 @@
         {% if module_build_module_name == module_name %}
         {% for module_build_build_version, module_build_build_failures in module_build_build_failures_dict.items %}
             {% if module_build_build_version in failure.build_versions %}
-                <td class="testname" nowrap>True</td>
+                <td class="testname" nowrap>failed</td>
             {% else %}
                 <td class="testname" nowrap>&nbsp;</td>
             {% endif %}
