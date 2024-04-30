@@ -4221,6 +4221,31 @@ def matrix(request):
                 android_os_projects_total[android_version].append(project_alias_name)
 
 
+    def sort_by_android_version(item):
+        if item[0] == "AOSP":
+            # other version like Android14 or Android14-GSI
+            # return "aosp" to make sure it's after AndroidXX versions
+            # and first when reversed
+            return "aosp"
+        else:
+            # will be like Android14 or Android14-GSI
+            return item[0]
+
+    def sort_by_branch_version(item):
+        if item[0].startswith("android-mainline"):
+            # return "mainline" to make sure it's after androidnn-x.y versions
+            # and first when reversed
+            return (item[0].replace('android-mainline', 'mainline'), 0, 0)
+        elif item[0] == "android-hikey-linaro-4.19-stable-lkft":
+            return("android-hikey-linaro", 4, 19)
+        else:
+            # like android12-5.10
+            ary = item[0].split('-')
+            ver_branch = ary[0]  # android12
+            ver_kernel_ver_maj_min = ary[1].split('.') # 5.10
+
+            return (ver_branch, int(ver_kernel_ver_maj_min[0]), int(ver_kernel_ver_maj_min[1]))
+
     for branch, android_os_projects in matrix_data.items():
         android_os_projects['real_projects_number'] = 0
         for android_version in android_os_projects_total.keys():
@@ -4229,10 +4254,10 @@ def matrix(request):
             else:
                 android_os_projects['real_projects_number'] = android_os_projects['real_projects_number']  + len(android_os_projects.get(android_version))
 
-        matrix_data[branch] = collections.OrderedDict(sorted(android_os_projects.items()))
-    matrix_data = collections.OrderedDict(sorted(matrix_data.items()))
+        matrix_data[branch] = collections.OrderedDict(sorted(android_os_projects.items(), key=sort_by_android_version, reverse=True))
+    matrix_data = collections.OrderedDict(sorted(matrix_data.items(), key=sort_by_branch_version, reverse=True))
 
-    android_os_projects_total = collections.OrderedDict(sorted(android_os_projects_total.items()))
+    android_os_projects_total = collections.OrderedDict(sorted(android_os_projects_total.items(), key=sort_by_android_version, reverse=True))
 
     response_data = {
         'matrix_data': matrix_data,
