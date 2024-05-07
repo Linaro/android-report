@@ -2648,7 +2648,7 @@ def resubmit_job_manual(request, qa_job_id):
                 def bisect_job_definition(original_definition, first_parent, first_parent_index, qa_team, qa_project):
                     job_definition_yaml = yaml.safe_load(original_definition)
                     job_definition_yaml['job_name'] = job_definition_yaml['job_name']  + f"-{first_parent_index:04d}-{first_parent[:12]}"
-                    job_definition_yaml['priority'] = "60"
+                    job_definition_yaml['priority'] = 60
                     if job_definition_yaml.get('secrets') is None or job_definition_yaml.get('secrets').get('TUXSUITE_TOKEN') is None:
                         job_definition_yaml['secrets']['TUXSUITE_TOKEN'] = 'TUXSUITE_TOKEN'
                     if job_definition_yaml.get('secrets') is None or job_definition_yaml.get('secrets').get('SQUAD_ARCHIVE_SUBMIT_TOKEN') is None:
@@ -2686,7 +2686,7 @@ def resubmit_job_manual(request, qa_job_id):
                                   - lava-test-case "git-user-email" --shell git config --global user.email lkft@linaro.org
                                   - lava-test-case "git-user-name" --shell git config --global user.name lkft-bot
                                   - lava-test-case "git-color-ui" --shell git config --global color.ui false
-                                  - lava-test-case "reinstall-tuxsuite" --shell pip3 install --force-reinstall tuxsuite
+                                  - lava-test-case "reinstall-tuxsuite" --shell pip3 install --force-reinstall --break-system-packages tuxsuite
                                   - lava-test-case "linaro-lkft-android" --shell SRCREV_kernel={SRCREV_kernel} /usr/bin/linaro-lkft-android.sh -g -c {postprocess_build_config}
                             docker:
                               image: {postprocess_docker_image}
