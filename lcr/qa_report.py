@@ -375,15 +375,16 @@ class LAVAApi(RESTFullApi):
 
     def get_lava_log(self, lava_job_id=None):
         # https://validation.linaro.org/scheduler/job/3365241/log_file/plain
-        url_log_plain = "https://%s/scheduler/job/%s/log_file/plain?user=%s&token=%s" % (self.domain, lava_job_id, self.username, self.api_token)
+        # https://lkft.validation.linaro.org/api/v0.2/jobs/7729706/logs
+        url_log_plain = self.get_api_url_prefix() + f"jobs/{lava_job_id}/logs"
         r = self.call_with_full_url(request_url=url_log_plain, returnResponse=True)
         if not r.ok and r.status_code == 404:
             #raise UrlNotFoundException(r, url=url_log_plain)
-            logger.warn("LAVA Log not found: " + "https://%s/scheduler/job/%s/log_file/plain" % (self.domain, lava_job_id) )
+            logger.warn("LAVA Log not found: " + url_log_plain )
             raw_logs = BytesIO()
         elif not r.ok or r.status_code != 200:
             #raise Exception(r.url, r.reason, r.status_code)
-            logger.warn("Failed to get LAVA Log for %s because of error: " + "https://%s/scheduler/job/%s/log_file/plain" % (self.domain, lava_job_id) + "\n" +  Exception(r.url, r.reason, r.status_code))
+            logger.warn("Failed to get LAVA Log for %s because of error: " + url_log_plain + "\n" +  str(Exception(r.url, r.reason, r.status_code)))
             raw_logs = BytesIO()
 
         raw_logs = BytesIO(r.content)
