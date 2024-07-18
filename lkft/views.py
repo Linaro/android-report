@@ -577,7 +577,7 @@ def get_testcases_number_for_job(job):
     return job['numbers']
 
 
-def get_classified_jobs(jobs=[]):
+def get_classified_jobs(jobs=[], environment=None):
     '''
         remove the resubmitted jobs and duplicated jobs(needs the jobs to be sorted in job_id descending order)
         as the result for the resubmit(including the duplicated jobs) jobs should be ignored.
@@ -605,7 +605,10 @@ def get_classified_jobs(jobs=[]):
     # and the job for the old build would not be resubmitted if new build is retriggered
     sorted_jobs = sorted(jobs, key=get_job_external_url, reverse=True)
     for job in sorted_jobs:
-        environment = job.get('environment')
+        job_environment = job.get('environment')
+        if environment is not None and job_environment != environment:
+            continue
+
         if job.get('url') in resubmitted_job_urls:
             # ignore jobs which were resubmitted
             job['resubmitted'] = True
@@ -620,14 +623,14 @@ def get_classified_jobs(jobs=[]):
         else:
             job_name_short = job.get('name')
 
-        if f"{job_name_short}|{environment}" in job_name_environments:
+        if f"{job_name_short}|{job_environment}" in job_name_environments:
             job['duplicated'] = True
             job['resubmitted'] = True
             resubmitted_or_duplicated_jobs.append(job)
             continue
 
         jobs_to_be_checked.append(job)
-        job_name_environments.append(f"{job_name_short}|{environment}")
+        job_name_environments.append(f"{job_name_short}|{job_environment}")
 
     return {
         'final_jobs': jobs_to_be_checked,
@@ -635,13 +638,13 @@ def get_classified_jobs(jobs=[]):
         }
 
 
-def get_test_result_number_for_build(build, jobs=None):
+def get_test_result_number_for_build(build, jobs=None, environment=None):
     test_numbers = qa_report.TestNumbers()
 
     if not jobs:
         jobs = get_jobs_for_build_from_db_or_qareport(build_id=build.get("id"), force_fetch_from_qareport=True)
 
-    jobs_to_be_checked = get_classified_jobs(jobs=jobs).get('final_jobs')
+    jobs_to_be_checked = get_classified_jobs(jobs=jobs, environment=environment).get('final_jobs')
     download_attachments_save_result(jobs=jobs_to_be_checked)
 
     jobs_finished = 0
@@ -669,11 +672,11 @@ def get_test_result_number_for_build(build, jobs=None):
         }
 
 
-def get_lkft_build_status(build, jobs):
+def get_lkft_build_status(build, jobs, environment=None):
     if not jobs:
         jobs = get_jobs_for_build_from_db_or_qareport(build_id=build.get("id"), force_fetch_from_qareport=True)
 
-    jobs_to_be_checked = get_classified_jobs(jobs=jobs).get('final_jobs')
+    jobs_to_be_checked = get_classified_jobs(jobs=jobs, environment=environment).get('final_jobs')
     if isinstance(build.get('created_at'), str):
         last_fetched_timestamp = qa_report_api.get_aware_datetime_from_str(build.get('created_at'))
     else:
@@ -823,7 +826,7 @@ def get_trigger_from_qareport_build(qareport_build):
         return None
 
 
-def get_project_info(project):
+def get_project_info(project, environment=None):
 
     logger.info("%s: Start to get qa-build information for project", project.get('name'))
     try:
@@ -846,7 +849,7 @@ def get_project_info(project):
 
         last_build['created_at'] = qa_report_api.get_aware_datetime_from_str(last_build.get('created_at'))
         jobs = get_jobs_for_build_from_db_or_qareport(build_id=last_build.get("id"), force_fetch_from_qareport=True)
-        last_build['numbers_of_result'] = get_test_result_number_for_build(last_build, jobs)
+        last_build['numbers_of_result'] = get_test_result_number_for_build(last_build, jobs, environment=environment)
         build_status = get_lkft_build_status(last_build, jobs)
         project['last_build'] = last_build
 
@@ -1054,7 +1057,7 @@ def list_projects(request):
     return list_group_projects(request, groups=groups, title_head=title_head)
 
 
-def get_build_info(db_reportproject=None, build=None, fetch_latest_from_qa_report=False):
+def get_build_info(db_reportproject=None, build=None, fetch_latest_from_qa_report=False, environment=None):
     if not build:
         return
 
@@ -1076,7 +1079,7 @@ def get_build_info(db_reportproject=None, build=None, fetch_latest_from_qa_repor
     trigger_build = get_trigger_from_qareport_build(build)
 
     get_lkft_build_status(build, jobs)
-    build['numbers'] = get_test_result_number_for_build(build, jobs)
+    build['numbers'] = get_test_result_number_for_build(build, jobs, environment=environment)
 
     if trigger_build:
         trigger_build['duration'] = datetime.timedelta(milliseconds=trigger_build['duration'])
@@ -1295,7 +1298,7 @@ def get_job_hash_with_db_record(db_report_job):
     return job
 
 
-def get_jobs_for_build_from_db_or_qareport(build_id=None, force_fetch_from_qareport=False):
+def get_jobs_for_build_from_db_or_qareport(build_id=None, force_fetch_from_qareport=False, environment=None):
     needs_fetch_jobs = False
 
     try:
@@ -1316,7 +1319,7 @@ def get_jobs_for_build_from_db_or_qareport(build_id=None, force_fetch_from_qarep
 
     if force_fetch_from_qareport or needs_fetch_jobs:
         jobs = qa_report_api.get_jobs_for_build(build_id)
-        get_classified_jobs(jobs)
+        get_classified_jobs(jobs, environment=environment)
         get_attachment_urls(jobs)
         for job in jobs:
             cache_qajob_to_database(job)
@@ -1333,6 +1336,7 @@ def get_measurements_of_project(project_id=None,
                                 testsuites=[],
                                 testcases=[],
                                 fetch_latest_from_qa_report=False,
+                                environment=None,
                                 per_page=0):
     # if project_id is not None:
     #     db_report_project = ReportProject.objects.get(project_id=project_id)
@@ -1369,7 +1373,7 @@ def get_measurements_of_project(project_id=None,
     sorted_builds = sorted(local_builds[:num_builds], key=get_build_kernel_version, reverse=True)
     for build in sorted_builds:
         jobs = get_jobs_for_build_from_db_or_qareport(build_id=build.get("id"), force_fetch_from_qareport=fetch_latest_from_qa_report)
-        jobs_to_be_checked = get_classified_jobs(jobs=jobs).get('final_jobs')
+        jobs_to_be_checked = get_classified_jobs(jobs=jobs, environment=environment).get('final_jobs')
         download_attachments_save_result(jobs_to_be_checked)
 
         jobs_query = None
@@ -1577,7 +1581,7 @@ def list_builds(request):
             num_builds = BUILD_WITH_JOBS_NUMBER
         sorted_builds = sorted(builds[:num_builds], key=get_build_kernel_version, reverse=True)
         for build in sorted_builds:
-            builds_result.append(get_build_info(db_reportproject, build, fetch_latest_from_qa_report=fetch_latest_from_qa_report))
+            builds_result.append(get_build_info(db_reportproject, build, fetch_latest_from_qa_report=fetch_latest_from_qa_report, environment=None))
 
         #func = functools.partial(get_build_info, db_reportproject)
         #with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
@@ -1662,7 +1666,7 @@ def find_bug_for_failure(failure, patterns=[], bugs=[]):
     return found_bug
 
 
-def get_project_jobs(project):
+def get_project_jobs(project, environment=None):
     local_all_final_jobs = []
     local_all_resubmitted_jobs = []
     logger.info('Start to get jobs for project: {}'.format(project.get('full_name')))
@@ -1670,7 +1674,7 @@ def get_project_jobs(project):
     if len(builds) > 0:
         last_build = builds[0]
         jobs = get_jobs_for_build_from_db_or_qareport(build_id=last_build.get("id"), force_fetch_from_qareport=True)
-        classified_jobs = get_classified_jobs(jobs=jobs)
+        classified_jobs = get_classified_jobs(jobs=jobs, environment=environment)
 
         for job in classified_jobs.get('final_jobs'):
             job['qareport_build'] = last_build
@@ -1820,6 +1824,7 @@ def get_build_metadata(build_metadata_url=None, project_name=None):
 
 def list_jobs(request):
     build_id = request.GET.get('build_id', None)
+    environment = None
     fetch_latest_from_qa_report = request.GET.get('fetch_latest', "false").lower() == 'true'
 
     build, db_report_build =  get_build_from_database_or_qareport(build_id, force_fetch_from_qareport=fetch_latest_from_qa_report)
@@ -1833,7 +1838,7 @@ def list_jobs(request):
     project_name = project.get('name')
 
     jobs = get_jobs_for_build_from_db_or_qareport(build_id=build_id, force_fetch_from_qareport=fetch_latest_from_qa_report)
-    classified_jobs = get_classified_jobs(jobs=jobs)
+    classified_jobs = get_classified_jobs(jobs=jobs, environment=environment)
     jobs_to_be_checked = classified_jobs.get('final_jobs')
     resubmitted_duplicated_jobs = classified_jobs.get('resubmitted_or_duplicated_jobs')
     for job in resubmitted_duplicated_jobs:
@@ -3387,7 +3392,7 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
             if qareport_build is None:
                 continue
             kernelchange_described_found = True
-            get_build_info(db_reportproject, qareport_build, fetch_latest_from_qa_report=fetch_latest_from_qa_report)
+            get_build_info(db_reportproject, qareport_build, fetch_latest_from_qa_report=fetch_latest_from_qa_report, environment=project_alias.get('environment'))
             qareport_builds.append(qareport_build)
 
 
