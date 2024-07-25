@@ -3372,6 +3372,7 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
     kernelchange_branch_supported = False
     kernelchange_described_found = False
     qareport_builds = []
+    squad_project_ids = []
     categories = branch_categories.get(branch, [branch, f'{branch}-boottime'])
     for category in categories:
         for project_alias_name in all_supported_kernels.get(category, []):
@@ -3384,6 +3385,14 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
 
             if squad_project is None:
                 continue
+
+            squad_project_id = squad_project.get("id")
+            if squad_project_id in squad_project_ids:
+                # to avoid duplicated projects with different environment
+                continue
+            else:
+                squad_project_ids.append(squad_project_id)
+
             kernelchange_branch_supported = True
             cache_qaproject_to_database(squad_project)
             squad_project, db_reportproject = get_project_from_database_or_qareport(squad_project.get('id'), force_fetch_from_qareport=fetch_latest_from_qa_report)
@@ -3392,7 +3401,9 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
             if qareport_build is None:
                 continue
             kernelchange_described_found = True
-            get_build_info(db_reportproject, qareport_build, fetch_latest_from_qa_report=fetch_latest_from_qa_report, environment=project_alias.get('environment'))
+            # ignore environment settings
+            get_build_info(db_reportproject, qareport_build, fetch_latest_from_qa_report=fetch_latest_from_qa_report)
+            qareport_build["project_alias"] = project_alias
             qareport_builds.append(qareport_build)
 
 
