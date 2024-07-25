@@ -2464,11 +2464,11 @@ def resubmit_job_manual(request, qa_job_id):
 
     results = []
     qa_job = qa_report_api.get_job_with_id(qa_job_id)
+    qa_report_api.reset_qajob_failure_msg(qa_job)
     qa_job_original_url = qa_report_api.get_job_api_url(qa_job_id).strip('/')
     if request.method == 'GET':
         job_definition =  qa_report_api.get_job_definition(qa_job.get('definition'))
         qa_job_environment = qa_job.get('environment')
-
         qa_project_url = qa_job.get('target')
         qa_project = qa_report_api.get_project_with_url(qa_project_url)
         qa_project_full_name = qa_project.get('full_name')
@@ -2493,8 +2493,12 @@ def resubmit_job_manual(request, qa_job_id):
         form_initial['bisect'] = bisect
         form_initial['qa_job_original_url'] = qa_job_original_url
         form_initial['lava_job_original_url'] = qa_job.get('external_url')
-        form_initial['resubmission_reason'] = ""
-        form_initial['definition'] = yaml_safe_dump(job_definition)
+
+        job_failure_msg = ""
+        if qa_job.get('failure') and qa_job.get('failure').get('error_msg'):
+            job_failure_msg = qa_job.get('failure').get('error_msg')
+        form_initial['resubmission_reason'] = job_failure_msg
+
         if bisect:
             form_initial['qa_project_full_name'] = f"~yongqin.liu/{kernel_branch}"
 
@@ -2526,9 +2530,22 @@ def resubmit_job_manual(request, qa_job_id):
                 form_initial['resubmission_reason'] = f"Bisect {qa_job.get('name')} for {qa_build_version}"
         else:
             form_initial['qa_project_full_name'] = qa_project_full_name
-            form_initial['resubmission_reason'] = ""
             first_parents = []
 
+            job_priority = job_definition['priority']
+            job_priority_int = 50
+            if job_priority == "medium":
+                job_priority_int = 50
+            elif job_priority == "high":
+                job_priority_int = 100
+            else:
+                job_priority_int = int(job_priority)
+
+            if job_priority_int < 60:
+                job_priority_int = job_priority_int + 1
+            job_definition['priority'] = job_priority_int
+
+        form_initial['definition'] = yaml_safe_dump(job_definition)
 
         form = JobResubmissionForm(initial=form_initial)
         form.fields['lava_job_name'].widget.attrs['readonly'] = "readonly"
