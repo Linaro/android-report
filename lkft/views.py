@@ -3944,6 +3944,11 @@ def project_history(request, group, slug):
                     module_build_failures[build_version] = build_failures
                 build_failures.append(test_dict)
 
+            # for the remain buid versions that no failures reported
+            failures_not_reported_build_versions = report_build_version_id_dict.keys() - test_dict.get('build_versions', [])
+            for build_version in failures_not_reported_build_versions:
+                module_build_failures[build_version] = []
+
         module_builds[module_name] = collections.OrderedDict(sorted(module_build_failures.items(), key=lambda item: report_build_version_id_dict.get(item[0], 0), reverse=True))
         failures[module_name] = collections.OrderedDict(sorted(failures_in_module_copy.items()))
 
