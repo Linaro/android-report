@@ -81,6 +81,9 @@ def is_benchmark_job(lava_job_name):
 def is_cts_vts_job(lava_job_name):
     return lava_job_name.find('cts') >= 0 or lava_job_name.find('vts') >= 0
 
+def is_kunit_job(lava_job_name):
+    return lava_job_name.find('kunit') >= 0
+
 '''
     {
         trigger_build: {
