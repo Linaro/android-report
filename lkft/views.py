@@ -40,7 +40,7 @@ from lcr.utils import download_urllib, download_url_content
 from lkft.lkft_config import find_citrigger, find_cibuild, get_hardware_from_pname, get_version_from_pname, get_kver_with_pname_env
 from lkft.lkft_config import find_expect_cibuilds
 from lkft.lkft_config import get_qa_server_project, get_supported_branches
-from lkft.lkft_config import is_benchmark_job, is_cts_vts_job, get_benchmark_testsuites, get_expected_benchmarks
+from lkft.lkft_config import is_benchmark_job, is_cts_vts_job, is_kunit_job, get_benchmark_testsuites, get_expected_benchmarks
 
 from .models import KernelChange, CiBuild, ReportBuild, ReportProject, ReportJob, TestSuite, TestCase, JobMeta
 
@@ -235,6 +235,7 @@ def download_attachments_save_result(jobs=[], fetch_latest=False):
 
         if not fetch_latest and \
                 report_job.results_cached and \
+                ( not is_kunit_job(job.get('name'))) and \
                 ( not is_cts_vts_job(job.get('name')) or report_job.modules_total > 0 ):
             # so that places that use job['numbers'] would still work, like the lkftreport script
             job['numbers'] = qa_report.TestNumbers().addWithDatabaseRecord(report_job).toHash()
@@ -247,18 +248,26 @@ def download_attachments_save_result(jobs=[], fetch_latest=False):
         if job.get('job_status') != 'Complete':
             continue
 
-        if is_benchmark_job(job.get('name')):
+        if is_benchmark_job(job.get('name')) or is_kunit_job(job.get('name')):
             # for benchmark jobs
             lava_config = job.get('lava_config')
             job_id = job.get('job_id')
+            qa_job_id = job.get('id')
             job_results = qa_report.LAVAApi(lava_config=lava_config).get_job_results(job_id=job_id)
 
             TestCase.objects.filter(lava_nick=lava_config.get('nick'), job_id=job_id).delete()
 
             testcase_objs = []
+            job_numbers = qa_report.TestNumbers()
+            job_numbers.modules_done = 1  # only one test definition here
+            job_numbers.modules_total = 1  # only one test definition here
             for test in job_results:
                 if test.get("suite") == "lava":
                     continue
+
+                if is_kunit_job(job.get('name')) and (not test.get("suite").endswith('android-kunit')):
+                    continue
+
                 # if pat_ignore.match(test.get("name")):
                 #     continue
 
@@ -277,9 +286,27 @@ def download_attachments_save_result(jobs=[], fetch_latest=False):
                                             lava_nick=lava_config.get('nick'),
                                             job_id=job_id)))
 
+                test_result = test.get("result")
+                if test_result == "pass":
+                    job_numbers.number_passed = job_numbers.number_passed + 1
+                elif test_result == "fail":
+                    job_numbers.number_failed = job_numbers.number_failed + 1
+                elif test_result == "assumption_failure":
+                    job_numbers.number_assumption_failure = job_numbers.number_assumption_failure + 1
+                else:
+                    # test_result == "skip":
+                    job_numbers.number_ignored = job_numbers.number_ignored + 1
+
             save_testcases_with_bulk_call(testcase_objs=testcase_objs)
+
             report_job.finished_successfully = True
-            job['numbers'] = qa_report.TestNumbers().toHash()
+
+            job_numbers.number_total = len(testcase_objs)
+
+            ## Note: report_job test numbers needs to be set here
+            job_numbers.setValueForDatabaseRecord(report_job)
+
+            job['numbers'] = job_numbers.toHash()
             job['numbers']['finished_successfully'] = report_job.finished_successfully
 
         elif is_cts_vts_job(job.get('name')):
@@ -324,6 +351,7 @@ def download_attachments_save_result(jobs=[], fetch_latest=False):
 
                 # job['numbers'] and job['numbers']['finished_successfully'] are set
                 # in the function of get_testcases_number_for_job
+                ### The following 3 lines may not necessary, as jobs_numbers is from report_job db object
                 job_numbers = get_testcases_number_for_job(job)
                 qa_report.TestNumbers.setHashValueForDatabaseRecord(report_job, job_numbers)
                 # need to set this finished_successfully explictly here
@@ -537,6 +565,8 @@ def save_tradeded_results_to_database(result_file_path, job, report_job):
 
 
 def get_testcases_number_for_job_with_qa_job_id(qa_job_id):
+    ## This function is to get the cached test numbers
+    ## from the DB ReportJob object. Not calculate from the testcases records
     test_numbers = qa_report.TestNumbers()
     try:
         db_report_job = ReportJob.objects.get(qa_job_id=qa_job_id)
@@ -567,6 +597,10 @@ def get_testcases_number_for_job(job):
         test_numbers = get_testcases_number_for_job_with_qa_job_id(job.get('id'))
         if test_numbers.modules_total > 0:
             finished_successfully = True
+    elif job_name.find('kunit') >= 0:
+        test_numbers = get_testcases_number_for_job_with_qa_job_id(job.get('id'))
+        test_numbers.modules_total = 1
+        finished_successfully = True
     elif job.get('job_status') == 'Complete':
         finished_successfully = True
 
