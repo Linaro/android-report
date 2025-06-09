@@ -3461,16 +3461,20 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
     if not kernelchange_described_found:
         return
 
-    first_qareport_build = qareport_builds[0]
-    target_build_metadata = qa_report_api.get_build_meta_with_url(first_qareport_build.get("metadata"))
-    # https://gitlab.com/Linaro/lkft/users/yongqin.liu/android-common/-/pipelines/1075583866
-    gitlab_url = target_build_metadata.get("pipeline.trigger.url")
-    if isinstance(gitlab_url, list):
-        gitlab_url = gitlab_url[-1]
-    if gitlab_url:
-        trigger_number = gitlab_url.strip('/').split('/')[-1]
-        trigger_name = gitlab_url.strip('/').split('/')[-4]
-    else:
+    gitlab_url = None
+    for tmp_qareport_build in qareport_builds:
+        target_build_metadata = qa_report_api.get_build_meta_with_url(tmp_qareport_build.get("metadata"))
+        # https://gitlab.com/Linaro/lkft/users/yongqin.liu/android-common/-/pipelines/1075583866
+        gitlab_url = target_build_metadata.get("pipeline.trigger.url")
+        if isinstance(gitlab_url, list):
+            gitlab_url = gitlab_url[-1]
+        if gitlab_url:
+            trigger_number = gitlab_url.strip('/').split('/')[-1]
+            trigger_name = gitlab_url.strip('/').split('/')[-4]
+            break
+
+    # Cases for None or ""
+    if not gitlab_url:
         trigger_number = 0
         trigger_name = 'unknown'
     db_kernelchange, newly_created = KernelChange.objects.get_or_create(branch=branch, describe=describe)
