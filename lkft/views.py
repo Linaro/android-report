@@ -3393,7 +3393,7 @@ def list_branch_kernel_changes(request, branch):
 
 def get_androidreportconfig_module():
     module_name = "androidreportconfig"
-    androidreportconfig_url = "https://gitlab.com/Linaro/lkft/users/yongqin.liu/squad-report/-/raw/master/squad_report/androidreportconfig.py"
+    androidreportconfig_url = "https://gitlab.com/Linaro/Android-Testing/squad-report/-/raw/master/squad_report/androidreportconfig.py"
     androidreportconfig_src = download_url_content(androidreportconfig_url)
     androidreportconfig_obj = compile(androidreportconfig_src, module_name, 'exec')
     import imp
@@ -3464,9 +3464,13 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
     gitlab_url = None
     for tmp_qareport_build in qareport_builds:
         target_build_metadata = qa_report_api.get_build_meta_with_url(tmp_qareport_build.get("metadata"))
-        # https://gitlab.com/Linaro/lkft/users/yongqin.liu/android-common/-/pipelines/1075583866
+        # https://gitlab.com/Linaro/lkft/mirrors/android/android-common/-/pipelines/1075583866
         gitlab_url = target_build_metadata.get("pipeline.trigger.url")
         if isinstance(gitlab_url, list):
+            build_url = target_build_metadata.get("build-url")
+            if isinstance(build_url, list):
+                build_url = gitlab_url[-1]
+            gitlab_url.remove(build_url)
             gitlab_url = gitlab_url[-1]
         if gitlab_url:
             trigger_number = gitlab_url.strip('/').split('/')[-1]
@@ -3490,7 +3494,7 @@ def fetch_data_for_describe_kernelchange(branch=None, describe=None, fetch_lates
     kernelchange_number = qa_report.TestNumbers()
     for qareport_build in qareport_builds:
         build_metadata = qa_report_api.get_build_meta_with_url(qareport_build.get("metadata"))
-        # https://gitlab.com/Linaro/lkft/users/yongqin.liu/android-common/-/pipelines/1075583866
+        # https://gitlab.com/Linaro/lkft/mirrors/android/android-common/-/pipelines/1075583866
         gitlab_url = target_build_metadata.get("build-url")
         if isinstance(gitlab_url, list):
             gitlab_url = gitlab_url[-1]
@@ -4153,8 +4157,8 @@ def gitlab_projects(request):
     gitlab_projects = [
         {
              'project_id':'32703900',
-             'path_with_namespace':'Linaro/lkft/users/yongqin.liu/lkft-android-build',
-             'web_url': 'https://gitlab.com/Linaro/lkft/users/yongqin.liu/lkft-android-build'
+             'path_with_namespace':'Linaro/Android-Testing/lkft-android-build',
+             'web_url': 'https://gitlab.com/Linaro/Android-Testing/lkft-android-build'
         },
     ]
 
@@ -4202,7 +4206,7 @@ def gitlab_project_pipelines(request, project_id):
                 kernel_describe = variables_dict.get('KERNEL_SPECIFIC')
                 target_report_job_name = 'report'
             elif variables_dict.get('KERNEL_DESCRIBE') is not None:
-                # for Linaro/lkft/users/yongqin.liu/lkft-android-build-private
+                # for Linaro/Android-Testing/lkft-android-build-private
                 kernel_describe = variables_dict.get('KERNEL_DESCRIBE')
                 target_report_job_name = 'report-for-android'
             else:
