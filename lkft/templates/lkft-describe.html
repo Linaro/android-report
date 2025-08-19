@@ -91,7 +91,7 @@
     </tr>
     <tr>
         <th>Trigger</th>
-        <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{kernel_change.trigger_name}}/-/pipelines/{{kernel_change.trigger_number}}">{{kernel_change.trigger_name}}#{{kernel_change.trigger_number}}</a></td>
+        <td><a href="https://gitlab.com/Linaro/mirrors/android/{{kernel_change.trigger_name}}/-/pipelines/{{kernel_change.trigger_number}}">{{kernel_change.trigger_name}}#{{kernel_change.trigger_number}}</a></td>
     </tr>
     <tr>
         <th>Started At</th>
@@ -158,8 +158,8 @@
         <th>Duration</th>
 </tr>
 <tr>
-    <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/-/pipelines">{{trigger_build.name}}</a></td>
-    <td align='right'><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{trigger_build.name}}/-/pipelines/{{trigger_build.number}}/">{{trigger_build.number}}</a></td>
+    <td><a href="https://gitlab.com/Linaro/lkft/mirrors/android/{{trigger_build.name}}/-/pipelines">{{trigger_build.name}}</a></td>
+    <td align='right'><a href="https://gitlab.com/Linaro/lkft/mirrors/android/{{trigger_build.name}}/-/pipelines/{{trigger_build.number}}/">{{trigger_build.number}}</a></td>
     <td>{{trigger_build.result}}</td>
     <td><p>Started at {{ trigger_build.timestamp|date:'M. d, Y, H:i'}}, <br/>{{ trigger_build.timestamp|timesince}} ago</p></td>
     <td align='right'>{{trigger_build.duration}}</td>
@@ -184,8 +184,8 @@
 {% for cibuild in ci_builds %}
 <tr>
     <td>{{ forloop.counter }}</td>
-    <td><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{cibuild.name}}/-/pipelines/">{{cibuild.name}}</a></td>
-    <td align='right'><a href="https://gitlab.com/Linaro/lkft/users/yongqin.liu/{{cibuild.name}}/-/pipelines/{{cibuild.number}}/">{{cibuild.number}}</a></td>
+    <td><a href="https://gitlab.com/Linaro/Android-Testing/{{cibuild.name}}/-/pipelines/">{{cibuild.name}}</a></td>
+    <td align='right'><a href="https://gitlab.com/Linaro/Android-Testing/{{cibuild.name}}/-/pipelines/{{cibuild.number}}/">{{cibuild.number}}</a></td>
     <td>{{cibuild.result}}</td>
     <td align='right'>{{cibuild.queued_duration}}</td>
     <td><p>Started at {{ cibuild.timestamp|date:'M. d, Y, H:i'}}, <br/>{{ cibuild.timestamp|timesince}} ago</p></td>
