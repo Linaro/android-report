@@ -32,6 +32,17 @@ class UrlNotFoundException(Exception):
         self.response = response
         self.url = url
 
+class TooManyRequestException(Exception):
+    '''
+        Too many requests were asked.
+    '''
+    response = None
+    url = None
+
+    def __init__(self, response, url=None):
+        self.response = response
+        self.url = url
+
 
 class ParameterInvalidException(Exception):
     """
@@ -724,6 +735,8 @@ class GoogleSourceApi(RESTFullApi):
         r = self.call_with_full_url(request_url=full_url, returnResponse=True)
         if not r.ok and r.status_code == 404:
             raise UrlNotFoundException(r, url=full_url)
+        elif not r.ok and r.status_code == 429:
+            raise TooManyRequestException(r, url=full_url)
         elif not r.ok or r.status_code != 200:
             raise Exception(r.url, r.reason, r.status_code)
 
@@ -758,6 +771,9 @@ class GoogleSourceApi(RESTFullApi):
                 first_parents.extend(self.get_first_parents_from_googlesource(first_parents[-1].get("parents")[0][:12], previous_sha_12bit))
 
         except UrlNotFoundException:
+            logger.info(f"URL {googlesource_log_url} does not exist" )
+            pass
+        except TooManyRequestException:
             logger.info(f"URL {googlesource_log_url} does not exist" )
             pass
 
