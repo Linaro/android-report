@@ -14,7 +14,7 @@ class KernelChange(models.Model):
     describe = models.CharField(max_length=255)
     reported = models.BooleanField(default=False)
     trigger_name = models.CharField(max_length=255)
-    trigger_number = models.IntegerField(default=0)
+    trigger_number = models.PositiveBigIntegerField(default=0)
 
     # TRIGGER_BUILD_COMPLETED
     # CI_BUILDS_IN_QUEUE / CI_BUILDS_NOT_REPORTED / CI_BUILDS_IN_PROGRESS / CI_BUILDS_COMPLETED
@@ -52,7 +52,7 @@ class CiBuildKernelChangeManager(models.Manager):
 
 class CiBuild(models.Model):
     name = models.CharField(max_length=255)
-    number = models.IntegerField()
+    number = models.PositiveBigIntegerField()
     kernel_change = models.ForeignKey(KernelChange, null=True, on_delete=models.CASCADE)
     timestamp = models.DateTimeField(null=True, default=timezone.now)
     duration = models.IntegerField(default=0) # total_seconds
